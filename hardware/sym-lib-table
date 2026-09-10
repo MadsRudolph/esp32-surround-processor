@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Surround")(type "KiCad")(uri "${KIPRJMOD}/../lib/Surround.kicad_sym")(options "")(descr "Module symbols for the surround carrier board"))
+)
