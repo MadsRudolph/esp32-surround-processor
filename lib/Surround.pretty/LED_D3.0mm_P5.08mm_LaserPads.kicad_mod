@@ -1,0 +1,92 @@
+(footprint "LED_D3.0mm_P5.08mm_LaserPads"
+	(version 20241229)
+	(generator "hand")
+	(layer "F.Cu")
+	(descr "3 mm through-hole LED on a widened 5.08 mm lead pitch. Every stock LED_THT two-pad footprint is 2.54 mm pitch with 1.8 mm pads, which leaves a 0.74 mm pad-to-pad gap -- below the 0.85 mm laser rule and well below the 1.2 mm a 0.8 mm endmill needs. LED legs bend freely, so the pitch is the lever to pull rather than the pad size: 5.08 mm with 2.0 mm pads gives a 3.08 mm channel that clears either process with room to spare. Pad 1 = K (cathode, square pad, chord on the silk body marks the flat), pad 2 = A. Silk body is drawn at 1.2 mm radius rather than the true 1.5 mm so it clears both pads by 0.34 mm -- a full-size circle lands 0.04 mm off pad 2 and trips silk_over_copper. Drill 0.8 mm suits the ~0.5 mm legs and is already the commonest drill on this board.")
+	(tags "LED THT 3mm 5.08mm laser mill wide clearance")
+	(property "Reference" "REF**"
+		(at 2.54 -3.2 0)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "LED_D3.0mm_P5.08mm_LaserPads"
+		(at 2.54 3.2 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_circle
+		(center 2.54 0)
+		(end 3.74 0)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 1.7 -0.857)
+		(end 1.7 0.857)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_circle
+		(center 2.54 0)
+		(end 3.74 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_rect
+		(start -1.25 -2.25)
+		(end 6.33 2.25)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 2.54 0 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(pad "1" thru_hole rect
+		(at 0 0)
+		(size 2 2)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "2" thru_hole circle
+		(at 5.08 0)
+		(size 2 2)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(embedded_fonts no)
+)

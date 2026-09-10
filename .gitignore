@@ -6,3 +6,10 @@ fp-info-cache
 *.erc
 *.net
 __pycache__/
+hardware/surround.routed*.kicad_pcb
+hardware/*.autoplace.json
+hardware/surround.json
+hardware/surround.placed.*
+hardware/.history/
+hardware/surround.routed*.kicad_pro
+hardware/surround.routed*.kicad_dru

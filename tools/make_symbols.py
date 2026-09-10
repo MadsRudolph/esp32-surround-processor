@@ -62,8 +62,8 @@ def symbol(name, refprefix, left, right, half_w, descr, keywords):
 # left header 1-19 top to bottom (3V3 ... 5V), right header 20-38 (GND ... CLK).
 esp_left = [
     ("5V", "19", "power_in"), ("3V3", "1", "power_out"), ("EN", "2", "input"),
-    ("IO34", "5", "input"), ("IO35", "6", "input"), ("IO32", "7", "bidirectional"),
     ("IO36/VP", "3", "input"), ("IO39/VN", "4", "input"),
+    ("IO34", "5", "input"), ("IO35", "6", "input"), ("IO32", "7", "bidirectional"),
     ("TX0/IO1", "23", "output"), ("RX0/IO3", "24", "input"),
     ("SD0/IO7", "37", "bidirectional"), ("SD1/IO8", "36", "bidirectional"),
     ("SD2/IO9", "16", "bidirectional"), ("SD3/IO10", "17", "bidirectional"),
@@ -71,8 +71,8 @@ esp_left = [
     ("GND", "14", "power_in"), ("GND", "20", "passive"), ("GND", "26", "passive"),
 ]
 esp_right = [
-    ("IO25", "9", "bidirectional"), ("IO26", "10", "bidirectional"),
-    ("IO27", "11", "bidirectional"), ("IO33", "8", "bidirectional"),
+    ("IO33", "8", "bidirectional"), ("IO25", "9", "bidirectional"),
+    ("IO26", "10", "bidirectional"), ("IO27", "11", "bidirectional"),
     ("IO18", "28", "bidirectional"), ("IO19", "27", "bidirectional"),
     ("IO23", "21", "bidirectional"), ("IO22", "22", "bidirectional"),
     ("IO21", "25", "bidirectional"),
@@ -89,8 +89,8 @@ dir_left = [
     ("VCC", "1", "power_in"), ("GND", "2", "power_in"),
 ]
 dir_right = [
-    ("SCKO", "3", "output"), ("BCKO", "4", "output"), ("LRCKO", "5", "output"),
-    ("DOUT", "6", "output"), ("ERROR", "7", "output"), ("AUDIO", "8", "output"),
+    ("AUDIO", "8", "output"), ("ERROR", "7", "output"), ("DOUT", "6", "output"),
+    ("LRCKO", "5", "output"), ("BCKO", "4", "output"), ("SCKO", "3", "output"),
 ]
 
 # ---------------------------------------------------------------- GY-PCM5102

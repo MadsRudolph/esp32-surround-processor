@@ -501,7 +501,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": -1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.8,
+        "track_width": 1.0,
         "tuning_profile": "",
         "via_diameter": 0.8,
         "via_drill": 0.4,
@@ -639,9 +639,9 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "vinyl_adc_digital.kicad_sch",
-        "name": "vinyl_adc_digital",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "filename": "surround.kicad_sch",
+        "name": "surround",
+        "uuid": "cd0b0c02-f405-44fe-bb60-a481e299cb09"
       }
     ],
     "used_designators": "",
@@ -650,7 +650,7 @@
   "sheets": [
     [
       "cd0b0c02-f405-44fe-bb60-a481e299cb09",
-      "Root"
+      "surround"
     ]
   ],
   "text_variables": {},

@@ -24,21 +24,21 @@ TOSLINK ─► TORX ─► DIR9001 PLL ─┬─► BCKO  = 64 fs  (3.072 MHz @ 
                                 ├─► DOUT  (24-bit, I2S, changes ≤ 5 ns after BCKO falling edge)
                                 └─► SCKO  (unused, leave PSCK[1:0] = LL → 128 fs, lowest EMI)
 
-BCKO ──┬─► ESP32 GPIO34 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
+BCKO ──┬─► ESP32 GPIO33 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
        ├─► DAC1 BCK
        └─► DAC2 BCK
 LRCKO ─┬─► ESP32 GPIO35 ──► I2S0 WS-in and I2S1 WS-in
        ├─► DAC1 LRCK
        └─► DAC2 LRCK
-DOUT ───► ESP32 GPIO32 ──► I2S0 DIN
-ESP32 GPIO25 (I2S0 DOUT) ──► DAC1 DIN
-ESP32 GPIO26 (I2S1 DOUT) ──► DAC2 DIN
+DOUT ───► ESP32 GPIO34 ──► I2S0 DIN
+ESP32 GPIO32 (I2S0 DOUT) ──► DAC1 DIN
+ESP32 GPIO25 (I2S1 DOUT) ──► DAC2 DIN
 ```
 
 ### 2.2 Can I2S0 slave-RX, I2S0 TX and I2S1 TX all run from the recovered clock? Yes.
 
 - **I2S0 full duplex, slave role.** Allocate TX and RX in one `i2s_new_channel()` call with `I2S_ROLE_SLAVE`. The driver then sets the ESP32's `I2S_SIG_LOOPBACK` bit (`i2s_ll_share_bck_ws`), which makes the TX and RX shift registers share one BCLK and one WS. In slave role both are GPIO inputs. DAC1 therefore gets its BCK/LRCK directly from the DIR9001 net, and the ESP32 only supplies DIN.
-- **I2S1 TX, slave role, same pads.** In v5.3 `i2s_gpio_check_and_set()` calls `gpio_set_direction(INPUT)` plus `esp_rom_gpio_connect_in_signal()` for inputs and only calls `i2s_output_gpio_reserve()` for outputs. One GPIO pad can feed any number of peripheral input signals through the GPIO matrix, so `.bclk = 34, .ws = 35` on both ports is legal. GPIO 16/17 are reserved in the pinout as a second physical tap in case a future IDF release starts reserving input pins.
+- **I2S1 TX, slave role, same pads.** In v5.3 `i2s_gpio_check_and_set()` calls `gpio_set_direction(INPUT)` plus `esp_rom_gpio_connect_in_signal()` for inputs and only calls `i2s_output_gpio_reserve()` for outputs. One GPIO pad can feed any number of peripheral input signals through the GPIO matrix, so `.bclk = 33, .ws = 35` on both ports is legal. GPIO 16/17 are reserved in the pinout as a second physical tap in case a future IDF release starts reserving input pins.
 - **Input-only GPIOs are legal for BCLK, WS and DIN in slave role** for the same reason: the driver only ever configures them as inputs.
 - **The internal I2S clock still runs in slave mode, but it does not matter.** `i2s_std_calculate_clock()` forces `bclk_div = 8` and `mclk = 8 × bclk` (24.576 MHz at 48 kHz) from the 160 MHz PLL_D2. That clock only oversamples the external BCLK for the slave logic. Its accuracy is irrelevant, no APLL is needed, and a 44.1 kHz stream is followed without any reconfiguration. Set `sample_rate_hz = 48000` as the nominal value.
 - **DAC1/DAC2 sample alignment.** Both TX units shift on the same BCLK edges and frame on the same WS. Their DMA engines start independently, so the static offset between DIN1 and DIN2 is 0 or 1 frame (20.8 µs). Make it deterministic: preload both TX channels with the same number of zero frames, then enable tx1, tx0, rx0 back to back with interrupts disabled. Check on a scope. A 1-frame offset is invisible next to the 20–30 ms Haas delay and can be absorbed into the delay-line length.
@@ -70,22 +70,23 @@ An APLL at 12.288 MHz is free-running against the TV's crystal. At ±100 ppm the
 
 | Net | GPIO | Dir | Peripheral | Notes |
 |---|---|---|---|---|
-| DIR_BCK | 34 | in | I2S0 bclk + I2S1 bclk | input-only pin, no glitch erratum |
+| DIR_BCK | 33 | in | I2S0 bclk + I2S1 bclk | any GPIO works as an input; chosen so the pin order matches the DAC header |
 | DIR_LRCK | 35 | in | I2S0 ws + I2S1 ws | input-only pin |
-| DIR_DOUT | 32 | in | I2S0 din | |
-| DIR_ERROR | 36 (SENSOR_VP) | in | GPIO ISR, any edge | firmware debounces 5 ms |
-| DIR_AUDIO | 39 (SENSOR_VN) | in | GPIO poll | non-PCM flag, active high |
-| DAC1_DIN | 25 | out | I2S0 dout | 33 Ω series at ESP32 |
-| DAC2_DIN | 26 | out | I2S1 dout | 33 Ω series at ESP32 |
-| XSMT (both DACs) | 27 | out | GPIO | 10 kΩ to GND: muted through boot |
+| DIR_DOUT | 34 | in | I2S0 din | input-only pin |
+| DIR_AUDIO | 36 (SENSOR_VP) | in | GPIO poll | non-PCM flag, active high |
+| DIR_ERROR | 39 (SENSOR_VN) | in | GPIO ISR, any edge | firmware debounces 5 ms |
+| DAC1_DIN | 32 | out | I2S0 dout | 33 Ω series at ESP32 |
+| DAC2_DIN | 25 | out | I2S1 dout | 33 Ω series at ESP32 |
+| XSMT (both DACs) | 26 | out | GPIO | 10 kΩ to GND: muted through boot |
+| STATUS_LED | 27 | out | GPIO | |
 | ENC_A | 18 | in | PCNT quadrature | internal pull-up |
 | ENC_B | 19 | in | PCNT quadrature | internal pull-up |
 | ENC_SW | 23 | in | GPIO | internal pull-up |
 | I2C_SDA | 21 | io | I2C0 | 4.7 kΩ pull-up, SSD1306 |
 | I2C_SCL | 22 | io | I2C0 | 4.7 kΩ pull-up |
-| STATUS_LED | 33 | out | GPIO | |
-| Fallback 2nd tap BCK/LRCK | 16, 17 | in | I2S1 | only if driver ever reserves inputs |
-| Spare | 4, 5, 13, 14 | | | 5/14 pulse at boot, 13/14 are JTAG |
+| Spare | 4, 5, 13, 14, 16, 17 | | | 5/14 pulse at boot, 13/14 are JTAG |
+
+The audio pins are all on the DevKitC's left socket row, in the order AUDIO, ERROR, DOUT, LRCK, (IO32), BCK, DIN2, XSMT, LED from the 3V3 end. That order is deliberate: on the single-sided carrier board it lets the DIR9001 and both DAC headers connect without a wire bridge (see the placement notes in the repository). GPIO 33, 32, 25 and 26 are ordinary I/O pins; a slave BCLK input on IO33 is fine.
 
 Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high or the flash runs at 1.8 V and the module bricks at boot), GPIO 1/3 (UART0 flashing and logs), GPIO 6–11 (SPI flash, fatal). GPIO 36/39 have an erratum where they glitch when the RTC ADC power-gates in light sleep; this design never sleeps, and they carry only status flags.
 
@@ -104,14 +105,14 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 │ ESP-WROOM-32  │          │ DAC1      │   │ DAC2      │     │ DIR9001 brd  │◄─TOSLINK│
 │  devkit       │          │ PCM5102A  │   │ PCM5102A  │     │  + TORX      │         │
 │               │          │ FRONT L/R │   │ SURR L/R  │     │              │         │
-│ GPIO34 ◄──────┼──────────┤ BCK ◄─────┼───┤ BCK ◄─────┼──33Ω┤ BCKO         │         │
+│ GPIO33 ◄──────┼──────────┤ BCK ◄─────┼───┤ BCK ◄─────┼──33Ω┤ BCKO         │         │
 │ GPIO35 ◄──────┼──────────┤ LRCK ◄────┼───┤ LRCK ◄────┼──33Ω┤ LRCKO        │         │
-│ GPIO32 ◄──────┼──────────┼───────────┼───┼───────────┼──33Ω┤ DOUT         │         │
-│ GPIO36 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ ERROR        │         │
-│ GPIO39 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ AUDIO        │         │
-│ GPIO25 ──33Ω──┼─────────►│ DIN       │   │           │     │ FMT1=H FMT0=H│         │
-│ GPIO26 ──33Ω──┼──────────┼───────────┼──►│ DIN       │     │ CKSEL=L      │         │
-│ GPIO27 ───────┼──────────┤ XSMT      ├───┤ XSMT      │     │ XTI=DGND     │         │
+│ GPIO34 ◄──────┼──────────┼───────────┼───┼───────────┼──33Ω┤ DOUT         │         │
+│ GPIO39 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ ERROR        │         │
+│ GPIO36 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ AUDIO        │         │
+│ GPIO32 ──33Ω──┼─────────►│ DIN       │   │           │     │ FMT1=H FMT0=H│         │
+│ GPIO25 ──33Ω──┼──────────┼───────────┼──►│ DIN       │     │ CKSEL=L      │         │
+│ GPIO26 ───────┼──────────┤ XSMT      ├───┤ XSMT      │     │ XTI=DGND     │         │
 │   └─10k─GND   │          │ SCK=GND   │   │ SCK=GND   │     │ PSCK=LL      │         │
 │               │          │ FMT=L     │   │ FMT=L     │     │ RST: int. PU │         │
 │ GPIO18/19/23 ◄┼─ encoder │ FLT=L     │   │ FLT=L     │     └──────┬───────┘         │
@@ -130,14 +131,14 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 
 | Net | From | To | Series R | Notes |
 |---|---|---|---|---|
-| DIR_BCK | DIR9001 BCKO | ESP32 GPIO34, DAC1 BCK, DAC2 BCK | 33 Ω at DIR9001 | 3 loads ≈ 50 pF incl. wire, fine at 3 MHz |
+| DIR_BCK | DIR9001 BCKO | ESP32 GPIO33, DAC1 BCK, DAC2 BCK | 33 Ω at DIR9001 | 3 loads ≈ 50 pF incl. wire, fine at 3 MHz |
 | DIR_LRCK | DIR9001 LRCKO | ESP32 GPIO35, DAC1 LRCK, DAC2 LRCK | 33 Ω at DIR9001 | |
-| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO32 | 33 Ω at DIR9001 | |
-| DIR_ERROR | DIR9001 ERROR | ESP32 GPIO36 | none | H = unlocked or parity error |
-| DIR_AUDIO | DIR9001 AUDIO | ESP32 GPIO39 | none | H = non-PCM (channel status bit 1) |
-| DAC1_DIN | ESP32 GPIO25 | DAC1 DIN | 33 Ω at ESP32 | |
-| DAC2_DIN | ESP32 GPIO26 | DAC2 DIN | 33 Ω at ESP32 | |
-| XSMT | ESP32 GPIO27 | DAC1 XSMT, DAC2 XSMT | none | 10 kΩ pull-down at ESP32 |
+| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO34 | 33 Ω at DIR9001 | |
+| DIR_ERROR | DIR9001 ERROR | ESP32 GPIO39 | none | H = unlocked or parity error |
+| DIR_AUDIO | DIR9001 AUDIO | ESP32 GPIO36 | none | H = non-PCM (channel status bit 1) |
+| DAC1_DIN | ESP32 GPIO32 | DAC1 DIN | 33 Ω at ESP32 | |
+| DAC2_DIN | ESP32 GPIO25 | DAC2 DIN | 33 Ω at ESP32 | |
+| XSMT | ESP32 GPIO26 | DAC1 XSMT, DAC2 XSMT | none | 10 kΩ pull-down at ESP32 |
 | ENC_A/B/SW | encoder | GPIO18/19/23 | none | common to GND, 100 nF to GND each |
 | I2C | GPIO21/22 | OLED | none | 4.7 kΩ pull-ups |
 | +5V | adapter | ESP32 VIN; FB1→DAC1 VIN; FB2→DAC2 VIN; FB3→DIR board | | 100 µF after each bead |
@@ -155,7 +156,7 @@ Wire rules: every digital line under 10 cm, 33 Ω at the driving end, each clock
 | FMT | L | I2S | solder bridge to L |
 | FLT | L | normal FIR filter, 20 ts latency = 0.42 ms | bridge to L; low-latency IIR saves 0.34 ms and costs stopband, not worth it |
 | DEMP | L | de-emphasis off | bridge to L |
-| XSMT | GPIO27 | firmware mute | remove the H bridge, wire the centre pad to GPIO27 |
+| XSMT | GPIO26 | firmware mute | remove the H bridge, wire the centre pad to GPIO26 |
 | VIN | 5 V | on-board LDO to 3.3 V | logic inputs are 3.3 V, matches ESP32 |
 
 ### 4.4 DIR9001 board straps
@@ -198,8 +199,8 @@ i2s_std_config_t s0 = {
     .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(48000),   // nominal only; clock is external
     .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT,
                                                     I2S_SLOT_MODE_STEREO),
-    .gpio_cfg = { .mclk = I2S_GPIO_UNUSED, .bclk = 34, .ws = 35,
-                  .dout = 25, .din = 32 },
+    .gpio_cfg = { .mclk = I2S_GPIO_UNUSED, .bclk = 33, .ws = 35,
+                  .dout = 32, .din = 34 },
 };
 i2s_channel_init_std_mode(tx0, &s0);
 i2s_channel_init_std_mode(rx0, &s0);
@@ -209,8 +210,8 @@ i2s_chan_config_t c1 = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_SLAVE);
 c1.dma_desc_num = 4; c1.dma_frame_num = 128; c1.auto_clear = true;
 i2s_new_channel(&c1, &tx1, NULL);
 i2s_std_config_t s1 = s0;
-s1.gpio_cfg = (i2s_std_gpio_config_t){ .mclk = I2S_GPIO_UNUSED, .bclk = 34, .ws = 35,
-                                        .dout = 26, .din = I2S_GPIO_UNUSED };
+s1.gpio_cfg = (i2s_std_gpio_config_t){ .mclk = I2S_GPIO_UNUSED, .bclk = 33, .ws = 35,
+                                        .dout = 25, .din = I2S_GPIO_UNUSED };
 i2s_channel_init_std_mode(tx1, &s1);
 
 // Start: prime both TX with 2 buffers of zeros, then enable back to back.
