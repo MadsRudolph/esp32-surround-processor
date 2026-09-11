@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply tools/surround.placement.json (anchor x, y, rot in board-relative mm)
+"""Apply tools/surround.placement.json (COURTYARD-CENTRE x, y, rot in board-relative mm)
 to the bootstrapped board and write hardware/surround.kicad_pcb in place.
 
     python3 tools/apply_placement.py [in.kicad_pcb] [out.kicad_pcb]
@@ -20,15 +20,29 @@ fps = {fp.GetReference(): fp for fp in b.GetFootprints()}
 missing = [r for r in fps if r not in plan and not r.startswith("H")]
 if missing:
     raise SystemExit(f"placement.json lacks: {missing}")
+def crt_centre(fp):
+    """Courtyard-bbox centre. NOT the same as the footprint anchor -- the anchor
+    is usually pad 1, so an axial part's anchor sits at one end of its body and
+    reasoning about spacing from anchors gets the gaps wrong by half a part."""
+    poly = fp.GetCourtyard(pcbnew.F_CrtYd)
+    if poly.OutlineCount() == 0:
+        poly = fp.GetCourtyard(pcbnew.B_CrtYd)
+    bb = poly.BBox() if poly.OutlineCount() else fp.GetBoundingBox(False)
+    return bb.Centre()
+
+
 for ref, (x, y, rot) in plan.items():
     fp = fps[ref]
     fp.SetOrientationDegrees(rot)
-    fp.SetPosition(VECTOR2I(FromMM(X0 + x), FromMM(Y0 + y)))
+    target = VECTOR2I(FromMM(X0 + x), FromMM(Y0 + y))
+    fp.SetPosition(target)
+    c = crt_centre(fp)
+    fp.SetPosition(VECTOR2I(target.x + (target.x - c.x), target.y + (target.y - c.y)))
 # courtyard overlap check, the thing the scorer will not fail on
 crt = {}
 for ref, fp in fps.items():
-    poly = fp.GetCourtyard(pcbnew.F_CrtYd)
-    bb = poly.BBox() if poly.OutlineCount() else fp.GetBoundingBox(False)
+    bb0 = fp.GetCourtyard(pcbnew.F_CrtYd)
+    bb = bb0.BBox() if bb0.OutlineCount() else fp.GetBoundingBox(False)
     crt[ref] = (ToMM(bb.GetLeft()), ToMM(bb.GetTop()), ToMM(bb.GetRight()), ToMM(bb.GetBottom()))
 refs = sorted(crt)
 hits = []

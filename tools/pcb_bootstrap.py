@@ -20,7 +20,8 @@ LIB_ROOTS = [ROOT / "lib", Path.home() / ".claude/skills/kicad-laser-pcb/lib",
              Path("/usr/share/kicad/footprints")]
 W, H = (float(v) for v in (sys.argv[1] if len(sys.argv) > 1 else "120x100").lower().split("x"))
 X0, Y0 = 20.0, 20.0
-CLEARANCE, TRACK = 0.85, 1.0          # cnc profile: 0.8 mm end mill
+CLEARANCE, TRACK = 0.85, 0.8          # cnc profile: 0.8 mm end mill cuts the GAP;
+#                                      the track itself may be narrower (see tools/netclasses.py)
 
 
 def load_fp(fpid):
@@ -92,9 +93,10 @@ ol = z.Outline(); ol.NewOutline()
 for (px, py) in [(X0, Y0), (X0 + W, Y0), (X0 + W, Y0 + H), (X0, Y0 + H)]:
     ol.Append(FromMM(px), FromMM(py))
 z.SetLocalClearance(FromMM(CLEARANCE)); z.SetMinThickness(FromMM(0.8))
-z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
-z.SetThermalReliefGap(FromMM(CLEARANCE)); z.SetThermalReliefSpokeWidth(FromMM(1.0))
-z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_NEVER)
+# solid pad connection: no thermal spokes to starve or for the mill to nick;
+# the pads are hand-soldered into a plane the iron can keep up with
+z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
 board.Add(z)
 
 ds = board.GetDesignSettings()
@@ -102,5 +104,8 @@ ds.SetCopperLayerCount(2)
 ds.m_TrackMinWidth = FromMM(0.8)
 nc = board.GetAllNetClasses()["Default"]
 nc.SetTrackWidth(FromMM(TRACK)); nc.SetClearance(FromMM(CLEARANCE))
+# a via on this process is a drilled hole with a wire link through it
+nc.SetViaDiameter(FromMM(1.6)); nc.SetViaDrill(FromMM(0.8))
+ds.m_ViasMinSize = FromMM(1.6); ds.m_MinThroughDrill = FromMM(0.8)
 pcbnew.SaveBoard(str(OUT), board)
 print(f"wrote {OUT.name}: {len(fps)} footprints, {len(netmap)} nets, {W:g}x{H:g} mm, GND pour on B.Cu")

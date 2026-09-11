@@ -19,7 +19,15 @@ both ports -> 2x PCM5102A in 3-wire BCK-PLL mode -> line out.
 | `tools/surround_layout.py` | Generates `hardware/surround.kicad_sch`. The schematic is code; edit the script, not the file. |
 | `tools/pcb_bootstrap.py` | Netlist JSON -> board with footprints, nets, outline, mounting holes, GND pour, cnc netclass. |
 | `tools/surround.placement.json` / `apply_placement.py` | The hand floorplan (anchor x, y, rot per part) and the script that applies it. |
-| `tools/finalize_pcb.py` / `kpy.py` | Pour refill after routing; launcher that patches this KiCad build's pcbnew iterator bug. |
+| `tools/netclasses.py` | Stamps the track widths and net-class assignments into the project. |
+| `tools/impedance.py` | Coplanar-waveguide impedance of the traces, and the series termination it implies. |
+| `tools/route.sh` | The routing pipeline: FreeRouting best-of-three, then a pre-routed retry, then the wire-link check. |
+| `tools/dsn_export.py` / `dsn_restrict.py` / `ses_import.py` | Specctra round trip, with the fast nets pinned to the bottom layer. |
+| `tools/finish_route.py` | A* finisher for links FreeRouting cannot reach. |
+| `tools/gnd_stitch.py` | Finds the ground-pour islands and routes wire links to rejoin them. |
+| `tools/wire_links.py` | Lists every wire link and fails if one lands on a net that may not be a wire. |
+| `tools/build_notes.py` | Generates `hardware/BUILD-NOTES.md` from the routed board. |
+| `tools/finalize_pcb.py` / `kpy.py` | Pour refill; launcher that patches this KiCad build's pcbnew iterator bug. |
 
 ## Regenerating the schematic
 
@@ -39,24 +47,57 @@ The layout script uses the `kicad-schematic` skill's drawing DSL
 ## Rebuilding the board
 
 ```bash
+python3 tools/make_symbols.py && python3 tools/make_footprints.py
+python3 tools/netclasses.py
+python3 tools/surround_layout.py                 # schematic
 cd hardware
+kicad-cli sch erc --severity-all -o surround.erc surround.kicad_sch
 kicad-cli sch export netlist --format kicadsexpr -o surround.net surround.kicad_sch
 python3 ~/.claude/skills/kicad-laser-pcb/scripts/pcb_netlist_json.py surround.net surround.json
 cd ..
-python3 tools/pcb_bootstrap.py 140x110          # fresh board, parts on a grid
-python3 tools/apply_placement.py                # the floorplan
-python3 ~/.claude/skills/kicad-place/scripts/place_score.py hardware/surround.kicad_pcb
-python3 ~/.claude/skills/kicad-place/scripts/place_floor.py --pours hardware/surround.kicad_pcb
-python3 ~/.claude/skills/kicad-place/scripts/place_router.py route hardware/surround.kicad_pcb \
-        --out hardware/surround.routed.kicad_pcb --pour-mode plane --orders 1
-python3 tools/kpy.py tools/finalize_pcb.py hardware/surround.routed.kicad_pcb
+python3 tools/pcb_bootstrap.py 140x110           # board, outline, pour, netclasses
+python3 tools/apply_placement.py                 # the floorplan
+./tools/route.sh                                 # FreeRouting + checks
+python3 tools/kpy.py tools/gnd_stitch.py hardware/surround.routed.kicad_pcb \
+        --write hardware/surround.routed.kicad_pcb
+python3 tools/kpy.py tools/build_notes.py hardware/surround.routed.kicad_pcb
 kicad-cli pcb drc --severity-all hardware/surround.routed.kicad_pcb
 ```
 
-Fabrication is the DTU single-sided process: copper isolation-milled on B.Cu
-with an 0.8 mm end mill (track 1.0 mm, clearance 0.85 mm), through-hole parts
-on top, silkscreen by fiber laser. The 2.54 mm socket rows sit at 0.84 mm
-pad-to-pad and carry documented exceptions in `surround.kicad_dru`.
+Routing needs `~/.freerouting/freerouting-2.4.1.jar`. FreeRouting is not
+deterministic on this board, so the script routes three times and keeps the best.
+
+## Fabrication and the rules that follow from it
+
+Copper is isolation-milled on the bottom layer with an **0.8 mm flat end mill**,
+through-hole parts on top, silkscreen by fiber laser.
+
+The limit the process imposes is on the copper **gap**, which is what the mill
+cuts. It is not a limit on track width. That distinction sets most of the numbers:
+
+| | value | why |
+|---|---|---|
+| clearance | 0.85 mm | 0.8 mm cutter plus margin for runout |
+| signal track | 0.8 mm | pitch is width + clearance, and 0.8 mm is what makes the corridor beside the DAC headers take two tracks instead of one |
+| power track | 1.5 mm | 25 mV of drop at 0.5 A over 150 mm |
+| minimum hole | 0.8 mm | |
+| annular ring | ≥ 0.4 mm | the stock barrel-jack footprint gave 0.25 mm and was replaced |
+
+Every footprint was audited against the 0.8 mm floor. The 2.54 mm socket rows come
+out at 0.84 mm pad to pad, which the mill still clears in one pass; those carry
+documented exceptions in `surround.kicad_dru`.
+
+## Wire links, and what is not allowed to be one
+
+The top side has no milled copper, so anything the router puts on the top layer
+is a wire soldered between two through-hole pads. No vias are drilled for them.
+
+The I2S clocks and data and the DAC outputs are **pinned to the bottom layer for
+the whole route**: a wire standing off the board is an uncontrolled-impedance stub
+with a large loop area, which is the wrong thing to hang a 3 MHz clock or a
+line-level output on. DC rails, ground and slow control lines may be links.
+`tools/wire_links.py` fails the build if a link appears on a net that may not
+carry one, and `hardware/BUILD-NOTES.md` lists every wire to solder.
 
 ## Board concept
 
@@ -86,7 +127,9 @@ PCM5102A SCK = GND, FMT = L, FLT = L, DEMP = L, XSMT bridge removed and wired to
 - [x] Design review
 - [x] Schematic (ERC clean, netlist checked against the review)
 - [x] Footprints, all audited against the 0.8 mm end mill
-- [x] Placement (scores 4/4, topology floor 0 bridges with the GND pour)
-- [ ] Routing signed off (single-sided, B.Cu only, DRC clean)
+- [x] Placement
+- [x] Routing: 47 of 48 nets, zero clearance violations, no vias, every wire link on a permitted net
+- [ ] Two items to close in the KiCad board editor, listed at the end of `hardware/BUILD-NOTES.md`:
+      one data link (A3 pad 4 to R4 pad 2) and one ground-island pair
 - [ ] Production files (Gerber + Excellon for CAM, silkscreen DXF for the laser)
 - [ ] Firmware (ESP-IDF v5.3, `driver/i2s_std.h`, liba52 for AC-3)

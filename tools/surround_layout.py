@@ -46,8 +46,8 @@ sh.note((G(16), G(14)), "Power in  (5 V class II adapter -> PTC -> 470 uF bulk; 
         "ferrite + 100 uF per module rail. Star ground at the jack.)", size=2)
 
 RAIL_Y = G(28)                                   # 35.56
-j1 = sh.place("Connector:Barrel_Jack", "J1", at=(G(20), G(30)), value="PWR IN 5V", footprint="Connector_BarrelJack:BarrelJack_Horizontal")
-f1 = sh.place("Device:Polyfuse", "F1", at=(G(34), RAIL_Y), rot=90, value="MF-R110", footprint="Fuse:Fuse_Bourns_MF-RHT100")
+j1 = sh.place("Connector:Barrel_Jack", "J1", at=(G(20), G(30)), value="PWR IN 5V", footprint="Surround:BarrelJack_Horizontal_MilledPads")
+f1 = sh.place("Device:Polyfuse", "F1", at=(G(34), RAIL_Y), rot=90, value="MF-R110", footprint="Surround:Fuse_Bourns_MF-R110_P5.1mm")
 sh.seg(j1.pin(1), f1.pin(1))
 c1 = sh.place("Device:C_Polarized", "C1", at=(G(46), RAIL_Y + G(3)), value="470uF/10V", footprint="Capacitor_THT:CP_Radial_D10.0mm_P5.00mm")
 sh.seg(f1.pin(2), (G(126), RAIL_Y))              # the +5V rail
@@ -105,14 +105,15 @@ for src, dst, ref, lab, my, xo, xb in bus:
         sh.seg((xb, my), (xb, b.y)); sh.seg((xb, b.y), b)
         left, right = (xo, my), (xb, my)
     if ref:
-        r = sh.place("Device:R", ref, at=(RXS[ref], my), rot=90, value="33R", footprint=RFP)
+        r = sh.place("Device:R", ref, at=(RXS[ref], my), rot=90, value="56R", footprint=RFP)
         sh.seg(left, r.pin(1)); sh.seg(r.pin(2), right)
     else:
         sh.seg(left, right)
     if lab:
         sh.label((G(90), my), lab, kind="global")
 sh.nc(dirm.pin("SCKO"))
-sh.note((G(44), G(86)), "33 R at the driver end of every clock/data line; keep wires < 10 cm", size=1.27)
+sh.note((G(30), G(84)), "Series source termination, sized to the 86 R coplanar trace (tools/impedance.py):", size=1.27)
+sh.note((G(30), G(86)), "56 R at every driver output (92 R line, 25-40 R CMOS source). Tune on a scope at the far pad.", size=1.27)
 
 # DIR9001 module straps and power
 fmt0, fmt1 = dirm.pin("FMT0"), dirm.pin("FMT1")
@@ -138,8 +139,8 @@ for g in (g14, g20, g26):
 sh.seg((G(116), g14.y), (G(116), g26.y))
 sh.gnd((G(116), g26.y))
 for nm in ("EN", "TX0/IO1", "RX0/IO3", "SD0/IO7", "SD1/IO8", "SD2/IO9", "SD3/IO10",
-           "CMD/IO11", "CLK/IO6", "IO0/BOOT", "IO2", "IO4", "IO5", "IO12/MTDI", "IO13",
-           "IO14", "IO15/MTDO", "IO16", "IO17"):
+           "CMD/IO11", "CLK/IO6", "IO0/BOOT", "IO2", "IO27", "IO33", "IO25", "IO5", "IO12/MTDI", "IO13",
+           "IO14", "IO15/MTDO"):
     sh.nc(esp.pin(nm))
 sh.note((G(124), G(131)), "IO12 must float (flash 1.8 V strap). IO0/IO2/IO15 strapping, IO6-11 flash: NC.", size=1.27)
 sh.note((G(124), G(133)), "Wi-Fi/BT and DFS disabled in firmware; audio task in IRAM.", size=1.27)
@@ -150,14 +151,23 @@ dac1 = sh.place("Surround:GY-PCM5102", "A3", at=(D1X, D1Y), value="GY-PCM5102 FR
 D2X, D2Y = G(230), G(117)
 dac2 = sh.place("Surround:GY-PCM5102", "A4", at=(D2X, D2Y), value="GY-PCM5102 SURROUND", footprint="Surround:GY-PCM5102_Carrier")
 
-din1, din2, xsmt_pin, led_pin = esp.pin("IO33"), esp.pin("IO25"), esp.pin("IO26"), esp.pin("IO27")
-assert abs(din1.y - dac1.pin("DIN").y) < 1e-6
-r4 = sh.place("Device:R", "R4", at=(G(200), din1.y), rot=90, value="33R", footprint=RFP)
-sh.seg(din1, r4.pin(1)); sh.seg(r4.pin(2), dac1.pin("DIN"))
+# The two DAC data lines come off the ESP32's LOWER pin row, not the upper one.
+# On the board the upper row is a 2.54 mm pitch wall with only a 20 mm channel
+# under the module behind it, and that channel is already carrying the five
+# DIR9001 signals; a data line taken from the upper row could not be routed on
+# copper at all, and copper is compulsory here (see tools/dsn_restrict.py).
+# The lower row faces the open half of the board where R4/R5 already sit.
+din1, din2, xsmt_pin, led_pin = (esp.pin("IO19"), esp.pin("IO23"),
+                                 esp.pin("IO26"), esp.pin("IO4"))
+r4 = sh.place("Device:R", "R4", at=(G(200), dac1.pin("DIN").y), rot=90, value="56R", footprint=RFP)
+sh.seg(r4.pin(2), dac1.pin("DIN"))
+sh.seg(din1, (G(194), din1.y)); sh.seg((G(194), din1.y), (G(194), r4.pin(1).y))
+sh.seg((G(194), r4.pin(1).y), r4.pin(1))
 d2din = dac2.pin("DIN")
-r5 = sh.place("Device:R", "R5", at=(G(200), d2din.y), rot=90, value="33R", footprint=RFP)
-sh.seg(din2, (G(196), din2.y)); sh.seg((G(196), din2.y), (G(196), d2din.y))
-sh.seg((G(196), d2din.y), r5.pin(1)); sh.seg(r5.pin(2), d2din)
+r5 = sh.place("Device:R", "R5", at=(G(200), d2din.y), rot=90, value="56R", footprint=RFP)
+sh.seg(r5.pin(2), d2din)
+sh.seg(din2, (G(190), din2.y)); sh.seg((G(190), din2.y), (G(190), r5.pin(1).y))
+sh.seg((G(190), r5.pin(1).y), r5.pin(1))
 sh.seg(xsmt_pin, (G(162), xsmt_pin.y)); sh.label((G(162), xsmt_pin.y), "XSMT", kind="global")
 
 LX = G(212)
@@ -176,7 +186,8 @@ for dac, pnet, rail_y in ((dac1, "+5V_DAC1", G(98)), (dac2, "+5V_DAC2", G(126)))
 sh.note((G(224), G(104)), "SCK=GND: 3-wire BCK-PLL mode. Module pads: FMT=L, FLT=L, DEMP=L,", size=1.27)
 sh.note((G(224), G(106)), "XSMT bridge removed and wired out. VIN = 5 V via on-board LDO.", size=1.27)
 
-# status LED on IO27
+# status LED on IO4: a bottom-row pin, so the LED does not drag a trace
+# across the whole board from the DIR9001 end of the top row
 r10 = sh.place("Device:R", "R10", at=(G(180), led_pin.y), rot=90, value="330R", footprint=RFP)
 sh.seg(led_pin, r10.pin(1))
 led = sh.place("Device:LED", "D1", at=(G(184), G(104)), rot=90, value="STATUS", footprint="Surround:LED_D3.0mm_P5.08mm_LaserPads")
@@ -215,15 +226,15 @@ sh.seg(ag2, (G(246), ag2.y)); sh.gnd((G(246), ag2.y), drop=G(4))
 sh.note((G(196), G(153)), "Panel TRS jacks on screw terminals, impedance-balanced to the Eris 3.5: 100 R tip, 100 R ring to GND.", size=1.27)
 
 # ============================================================ band 3: user interface
-sh.note((G(160), G(157)), "User interface  (rotary encoder on PCNT with glitch filter, "
+sh.note((G(160), G(157)), "User interface  (encoder on IO16/IO17/IO18 via PCNT with glitch filter, "
         "internal pull-ups; SSD1306 OLED on I2C with pull-ups on the module)", size=2)
 enc = sh.place("Device:RotaryEncoder_Switch", "SW1", at=(G(200), G(170)), value="ENC (panel, 5 wires)", footprint="Surround:PinHeader_1x05_Encoder")
 ea, eb, ec, s1, s2 = enc.pin("A"), enc.pin("B"), enc.pin("C"), enc.pin("S1"), enc.pin("S2")
-io18, io19, io23, io22, io21 = (esp.pin(n) for n in ("IO18", "IO19", "IO23", "IO22", "IO21"))
+enc_a, enc_b, enc_sw, io22, io21 = (esp.pin(n) for n in ("IO16", "IO17", "IO18", "IO22", "IO21"))
 # nested fan-out: upper pin turns down further right
-sh.seg(io18, (G(176), io18.y)); sh.seg((G(176), io18.y), (G(176), ea.y)); sh.seg((G(176), ea.y), ea)
-sh.seg(io19, (G(174), io19.y)); sh.seg((G(174), io19.y), (G(174), eb.y)); sh.seg((G(174), eb.y), eb)
-sh.seg(io23, (G(172), io23.y)); sh.seg((G(172), io23.y), (G(172), G(180)))
+sh.seg(enc_a, (G(176), enc_a.y)); sh.seg((G(176), enc_a.y), (G(176), ea.y)); sh.seg((G(176), ea.y), ea)
+sh.seg(enc_b, (G(174), enc_b.y)); sh.seg((G(174), enc_b.y), (G(174), eb.y)); sh.seg((G(174), eb.y), eb)
+sh.seg(enc_sw, (G(172), enc_sw.y)); sh.seg((G(172), enc_sw.y), (G(172), G(180)))
 sh.seg((G(172), G(180)), (G(214), G(180))); sh.seg((G(214), G(180)), (G(214), s1.y)); sh.seg((G(214), s1.y), s1)
 sh.seg(ec, (G(190), ec.y)); sh.power("power:GND", (G(190), ec.y), rot=270)
 sh.seg(s2, (G(210), s2.y)); sh.gnd((G(210), s2.y))

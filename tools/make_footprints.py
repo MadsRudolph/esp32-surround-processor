@@ -126,6 +126,38 @@ vendored("TerminalBlock_bornier-2_P5.08mm", "TerminalBlock_TS_P5.08mm", {"1": "T
 vendored("TerminalBlock_bornier-3_P5.08mm", "TerminalBlock_TRS_P5.08mm", {"1": "T", "2": "R", "3": "S"},
          "3-pin 5.08 mm screw terminal, pads T/R/S, for a panel-mount TRS jack (vendored bornier-3)")
 
+# ---------------------------------------------------------------- barrel jack, milled
+# The stock BarrelJack_Horizontal puts 3.5 mm square pads over 1.0 x 3.0 mm slots,
+# so the ring across the slot is 0.25 mm: too thin to survive an isolation pass with
+# any registration error, and KiCad's annular_width check rejects it. Same body and
+# the same slots, but each pad becomes an oval grown along the slot's SHORT axis, so
+# the thinnest ring is 0.8 mm. The limit is pad 3, which sits 4.7 mm from pad 1 and
+# must still leave the 0.8 mm the end mill needs between them.
+STOCK_BJ = Path("/usr/share/kicad/footprints/Connector_BarrelJack.pretty/BarrelJack_Horizontal.kicad_mod")
+SIZES = {"1": (3.0, 4.6), "2": (3.0, 4.6), "3": (4.6, 3.0)}
+out, num = [], None
+for line in STOCK_BJ.read_text(encoding="utf-8").splitlines(keepends=True):
+    m = re.match(r'\s*\(pad "(\d+)"', line)
+    if m:
+        num = m.group(1)
+    if num in SIZES and re.match(r"\s*\(size ", line):
+        w, h = SIZES[num]
+        line = re.sub(r"\(size [\d.]+ [\d.]+\)", f"(size {w} {h})", line)
+        num = None
+    out.append(line)
+bj = "".join(out)
+bj = bj.replace('(footprint "BarrelJack_Horizontal"', '(footprint "BarrelJack_Horizontal_MilledPads"')
+bj = re.sub(r'\(property "Value" "[^"]*"', '(property "Value" "BarrelJack_Horizontal_MilledPads"', bj)
+bj = bj.replace("thru_hole rect", "thru_hole oval")
+(LIB / "BarrelJack_Horizontal_MilledPads.kicad_mod").write_text(bj, encoding="utf-8")
+print("wrote BarrelJack_Horizontal_MilledPads")
+
+# ---------------------------------------------------------------- PTC fuse, 0.8 mm drill
+# Stock Fuse_Bourns_MF-RHT100 drills 0.71 mm, under the process minimum hole.
+body = pad("1", 0, 0, size=(1.9, 1.9), drill=0.9, shape="rect") + pad("2", 5.1, 1.2, size=(1.9, 1.9), drill=0.9)
+footprint("Fuse_Bourns_MF-R110_P5.1mm", "Bourns MF-R110 radial PTC, 5.1 mm lead spacing, 0.9 mm drill",
+          body, -2.6, 4.5, (-2.7, -1.5, 7.8, 2.9), (-2.0, -0.8, 7.1, 2.0))
+
 # ---------------------------------------------------------------- LED with mill-safe pads
 (LIB / "LED_D3.0mm_P5.08mm_LaserPads.kicad_mod").write_text(
     (SKILL_LIB / "LED_D3.0mm_P5.08mm_LaserPads.kicad_mod").read_text(encoding="utf-8"), encoding="utf-8")

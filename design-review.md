@@ -24,21 +24,21 @@ TOSLINK ─► TORX ─► DIR9001 PLL ─┬─► BCKO  = 64 fs  (3.072 MHz @ 
                                 ├─► DOUT  (24-bit, I2S, changes ≤ 5 ns after BCKO falling edge)
                                 └─► SCKO  (unused, leave PSCK[1:0] = LL → 128 fs, lowest EMI)
 
-BCKO ──┬─► ESP32 GPIO33 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
+BCKO ──┬─► ESP32 GPIO32 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
        ├─► DAC1 BCK
        └─► DAC2 BCK
 LRCKO ─┬─► ESP32 GPIO35 ──► I2S0 WS-in and I2S1 WS-in
        ├─► DAC1 LRCK
        └─► DAC2 LRCK
 DOUT ───► ESP32 GPIO34 ──► I2S0 DIN
-ESP32 GPIO32 (I2S0 DOUT) ──► DAC1 DIN
-ESP32 GPIO25 (I2S1 DOUT) ──► DAC2 DIN
+ESP32 GPIO19 (I2S0 DOUT) ──► DAC1 DIN
+ESP32 GPIO23 (I2S1 DOUT) ──► DAC2 DIN
 ```
 
 ### 2.2 Can I2S0 slave-RX, I2S0 TX and I2S1 TX all run from the recovered clock? Yes.
 
 - **I2S0 full duplex, slave role.** Allocate TX and RX in one `i2s_new_channel()` call with `I2S_ROLE_SLAVE`. The driver then sets the ESP32's `I2S_SIG_LOOPBACK` bit (`i2s_ll_share_bck_ws`), which makes the TX and RX shift registers share one BCLK and one WS. In slave role both are GPIO inputs. DAC1 therefore gets its BCK/LRCK directly from the DIR9001 net, and the ESP32 only supplies DIN.
-- **I2S1 TX, slave role, same pads.** In v5.3 `i2s_gpio_check_and_set()` calls `gpio_set_direction(INPUT)` plus `esp_rom_gpio_connect_in_signal()` for inputs and only calls `i2s_output_gpio_reserve()` for outputs. One GPIO pad can feed any number of peripheral input signals through the GPIO matrix, so `.bclk = 33, .ws = 35` on both ports is legal. GPIO 16/17 are reserved in the pinout as a second physical tap in case a future IDF release starts reserving input pins.
+- **I2S1 TX, slave role, same pads.** In v5.3 `i2s_gpio_check_and_set()` calls `gpio_set_direction(INPUT)` plus `esp_rom_gpio_connect_in_signal()` for inputs and only calls `i2s_output_gpio_reserve()` for outputs. One GPIO pad can feed any number of peripheral input signals through the GPIO matrix, so `.bclk = 32, .ws = 35` on both ports is legal. GPIO 16/17 are reserved in the pinout as a second physical tap in case a future IDF release starts reserving input pins.
 - **Input-only GPIOs are legal for BCLK, WS and DIN in slave role** for the same reason: the driver only ever configures them as inputs.
 - **The internal I2S clock still runs in slave mode, but it does not matter.** `i2s_std_calculate_clock()` forces `bclk_div = 8` and `mclk = 8 × bclk` (24.576 MHz at 48 kHz) from the 160 MHz PLL_D2. That clock only oversamples the external BCLK for the slave logic. Its accuracy is irrelevant, no APLL is needed, and a 44.1 kHz stream is followed without any reconfiguration. Set `sample_rate_hz = 48000` as the nominal value.
 - **DAC1/DAC2 sample alignment.** Both TX units shift on the same BCLK edges and frame on the same WS. Their DMA engines start independently, so the static offset between DIN1 and DIN2 is 0 or 1 frame (20.8 µs). Make it deterministic: preload both TX channels with the same number of zero frames, then enable tx1, tx0, rx0 back to back with interrupts disabled. Check on a scope. A 1-frame offset is invisible next to the 20–30 ms Haas delay and can be absorbed into the delay-line length.
@@ -68,25 +68,31 @@ An APLL at 12.288 MHz is free-running against the TV's crystal. At ±100 ppm the
 
 ## 3. Deliverable 2: ESP-WROOM-32 pinout
 
-| Net | GPIO | Dir | Peripheral | Notes |
+| Net | GPIO | Pin row | Peripheral | Notes |
 |---|---|---|---|---|
-| DIR_BCK | 33 | in | I2S0 bclk + I2S1 bclk | any GPIO works as an input; chosen so the pin order matches the DAC header |
-| DIR_LRCK | 35 | in | I2S0 ws + I2S1 ws | input-only pin |
-| DIR_DOUT | 34 | in | I2S0 din | input-only pin |
-| DIR_AUDIO | 36 (SENSOR_VP) | in | GPIO poll | non-PCM flag, active high |
-| DIR_ERROR | 39 (SENSOR_VN) | in | GPIO ISR, any edge | firmware debounces 5 ms |
-| DAC1_DIN | 32 | out | I2S0 dout | 33 Ω series at ESP32 |
-| DAC2_DIN | 25 | out | I2S1 dout | 33 Ω series at ESP32 |
-| XSMT (both DACs) | 26 | out | GPIO | 10 kΩ to GND: muted through boot |
-| STATUS_LED | 27 | out | GPIO | |
-| ENC_A | 18 | in | PCNT quadrature | internal pull-up |
-| ENC_B | 19 | in | PCNT quadrature | internal pull-up |
-| ENC_SW | 23 | in | GPIO | internal pull-up |
-| I2C_SDA | 21 | io | I2C0 | 4.7 kΩ pull-up, SSD1306 |
-| I2C_SCL | 22 | io | I2C0 | 4.7 kΩ pull-up |
-| Spare | 4, 5, 13, 14, 16, 17 | | | 5/14 pulse at boot, 13/14 are JTAG |
+| DIR_AUDIO | 36 (SENSOR_VP) | upper | GPIO poll | non-PCM flag, active high |
+| DIR_ERROR | 39 (SENSOR_VN) | upper | GPIO ISR, any edge | firmware debounces 5 ms |
+| DIR_DOUT | 34 | upper | I2S0 din | input-only pin |
+| DIR_LRCK | 35 | upper | I2S0 ws + I2S1 ws | input-only pin |
+| DIR_BCK | 32 | upper | I2S0 bclk + I2S1 bclk | |
+| XSMT (both DACs) | 26 | upper | GPIO | 10 kΩ to GND: muted through boot |
+| DAC1_DIN | 19 | lower | I2S0 dout | 56 Ω series at the ESP32 |
+| DAC2_DIN | 23 | lower | I2S1 dout | 56 Ω series at the ESP32 |
+| ENC_A | 16 | lower | PCNT quadrature | internal pull-up |
+| ENC_B | 17 | lower | PCNT quadrature | internal pull-up |
+| ENC_SW | 18 | lower | GPIO | internal pull-up |
+| I2C_SDA | 21 | lower | I2C0 | 4.7 kΩ pull-up on the OLED module |
+| I2C_SCL | 22 | lower | I2C0 | 4.7 kΩ pull-up on the OLED module |
+| STATUS_LED | 4 | lower | GPIO | 330 Ω |
+| Spare | 5, 13, 14, 27, 33 | | | 5 pulses at boot, 13/14 are JTAG |
 
-The audio pins are all on the DevKitC's left socket row, in the order AUDIO, ERROR, DOUT, LRCK, (IO32), BCK, DIN2, XSMT, LED from the 3V3 end. That order is deliberate: on the single-sided carrier board it lets the DIR9001 and both DAC headers connect without a wire bridge (see the placement notes in the repository). GPIO 33, 32, 25 and 26 are ordinary I/O pins; a slave BCLK input on IO33 is fine.
+Two things about this map are set by the board rather than by the peripheral.
+The five DIR9001 signals all sit on the **upper** pin row in the order the
+DIR9001's own pins meet them, so the bus fans out without crossing. The two DAC
+data lines sit on the **lower** row: the upper row is a 2.54 mm wall with only a
+20 mm channel behind it, already carrying the five DIR9001 signals, and a data
+line taken from there could not be routed on copper at all. The encoder is on
+16/17/18 because those three pads land directly above its own pads.
 
 Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high or the flash runs at 1.8 V and the module bricks at boot), GPIO 1/3 (UART0 flashing and logs), GPIO 6–11 (SPI flash, fatal). GPIO 36/39 have an erratum where they glitch when the RTC ADC power-gates in light sleep; this design never sleeps, and they carry only status flags.
 
@@ -105,13 +111,13 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 │ ESP-WROOM-32  │          │ DAC1      │   │ DAC2      │     │ DIR9001 brd  │◄─TOSLINK│
 │  devkit       │          │ PCM5102A  │   │ PCM5102A  │     │  + TORX      │         │
 │               │          │ FRONT L/R │   │ SURR L/R  │     │              │         │
-│ GPIO33 ◄──────┼──────────┤ BCK ◄─────┼───┤ BCK ◄─────┼──33Ω┤ BCKO         │         │
-│ GPIO35 ◄──────┼──────────┤ LRCK ◄────┼───┤ LRCK ◄────┼──33Ω┤ LRCKO        │         │
-│ GPIO34 ◄──────┼──────────┼───────────┼───┼───────────┼──33Ω┤ DOUT         │         │
+│ GPIO32 ◄──────┼──────────┤ BCK ◄─────┼───┤ BCK ◄─────┼──56Ω┤ BCKO         │         │
+│ GPIO35 ◄──────┼──────────┤ LRCK ◄────┼───┤ LRCK ◄────┼──56Ω┤ LRCKO        │         │
+│ GPIO34 ◄──────┼──────────┼───────────┼───┼───────────┼──56Ω┤ DOUT         │         │
 │ GPIO39 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ ERROR        │         │
 │ GPIO36 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ AUDIO        │         │
-│ GPIO32 ──33Ω──┼─────────►│ DIN       │   │           │     │ FMT1=H FMT0=H│         │
-│ GPIO25 ──33Ω──┼──────────┼───────────┼──►│ DIN       │     │ CKSEL=L      │         │
+│ GPIO19 ──56Ω──┼─────────►│ DIN       │   │           │     │ FMT1=H FMT0=H│         │
+│ GPIO23 ──56Ω──┼──────────┼───────────┼──►│ DIN       │     │ CKSEL=L      │         │
 │ GPIO26 ───────┼──────────┤ XSMT      ├───┤ XSMT      │     │ XTI=DGND     │         │
 │   └─10k─GND   │          │ SCK=GND   │   │ SCK=GND   │     │ PSCK=LL      │         │
 │               │          │ FMT=L     │   │ FMT=L     │     │ RST: int. PU │         │
@@ -131,13 +137,13 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 
 | Net | From | To | Series R | Notes |
 |---|---|---|---|---|
-| DIR_BCK | DIR9001 BCKO | ESP32 GPIO33, DAC1 BCK, DAC2 BCK | 33 Ω at DIR9001 | 3 loads ≈ 50 pF incl. wire, fine at 3 MHz |
-| DIR_LRCK | DIR9001 LRCKO | ESP32 GPIO35, DAC1 LRCK, DAC2 LRCK | 33 Ω at DIR9001 | |
-| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO34 | 33 Ω at DIR9001 | |
+| DIR_BCK | DIR9001 BCKO | ESP32 GPIO32, DAC1 BCK, DAC2 BCK | 56 Ω at DIR9001 | 3 loads ≈ 50 pF, fine at 3 MHz |
+| DIR_LRCK | DIR9001 LRCKO | ESP32 GPIO35, DAC1 LRCK, DAC2 LRCK | 56 Ω at DIR9001 | |
+| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO34 | 56 Ω at DIR9001 | |
 | DIR_ERROR | DIR9001 ERROR | ESP32 GPIO39 | none | H = unlocked or parity error |
 | DIR_AUDIO | DIR9001 AUDIO | ESP32 GPIO36 | none | H = non-PCM (channel status bit 1) |
-| DAC1_DIN | ESP32 GPIO32 | DAC1 DIN | 33 Ω at ESP32 | |
-| DAC2_DIN | ESP32 GPIO25 | DAC2 DIN | 33 Ω at ESP32 | |
+| DAC1_DIN | ESP32 GPIO19 | DAC1 DIN | 56 Ω at ESP32 | |
+| DAC2_DIN | ESP32 GPIO23 | DAC2 DIN | 56 Ω at ESP32 | |
 | XSMT | ESP32 GPIO26 | DAC1 XSMT, DAC2 XSMT | none | 10 kΩ pull-down at ESP32 |
 | ENC_A/B/SW | encoder | GPIO18/19/23 | none | common to GND, 100 nF to GND each |
 | I2C | GPIO21/22 | OLED | none | 4.7 kΩ pull-ups |
@@ -146,7 +152,7 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 | FRONT_L/R | DAC1 OUT | Fosi RCA in | on-board 470 Ω + 2.2 nF | short cable |
 | SURR_L/R | DAC2 OUT | Eris 3.5 TRS in | 100 Ω tip, 100 Ω ring-to-GND | impedance-balanced, see 4.5 |
 
-Wire rules: every digital line under 10 cm, 33 Ω at the driving end, each clock twisted with a ground return or carried on ribbon cable with GND on alternating conductors. The 33 Ω plus the driver's ~25 Ω output impedance roughly matches a twisted pair and kills the ringing that would otherwise double-clock the DAC.
+Wire rules: every digital line under 10 cm, 56 Ω at the driving end, each clock twisted with a ground return or carried on ribbon cable with GND on alternating conductors. On the carrier board the traces are 0.8 mm with the ground pour beside them at the 0.85 mm mill gap, which is a 92 Ω coplanar line; 56 Ω plus a 25 to 40 Ω CMOS source sits on that, and `tools/impedance.py` in the repository derives it.
 
 ### 4.3 PCM5102A board straps (GY-PCM5102 type)
 
@@ -199,8 +205,8 @@ i2s_std_config_t s0 = {
     .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(48000),   // nominal only; clock is external
     .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT,
                                                     I2S_SLOT_MODE_STEREO),
-    .gpio_cfg = { .mclk = I2S_GPIO_UNUSED, .bclk = 33, .ws = 35,
-                  .dout = 32, .din = 34 },
+    .gpio_cfg = { .mclk = I2S_GPIO_UNUSED, .bclk = 32, .ws = 35,
+                  .dout = 19, .din = 34 },
 };
 i2s_channel_init_std_mode(tx0, &s0);
 i2s_channel_init_std_mode(rx0, &s0);
@@ -210,8 +216,8 @@ i2s_chan_config_t c1 = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_SLAVE);
 c1.dma_desc_num = 4; c1.dma_frame_num = 128; c1.auto_clear = true;
 i2s_new_channel(&c1, &tx1, NULL);
 i2s_std_config_t s1 = s0;
-s1.gpio_cfg = (i2s_std_gpio_config_t){ .mclk = I2S_GPIO_UNUSED, .bclk = 33, .ws = 35,
-                                        .dout = 25, .din = I2S_GPIO_UNUSED };
+s1.gpio_cfg = (i2s_std_gpio_config_t){ .mclk = I2S_GPIO_UNUSED, .bclk = 32, .ws = 35,
+                                        .dout = 23, .din = I2S_GPIO_UNUSED };
 i2s_channel_init_std_mode(tx1, &s1);
 
 // Start: prime both TX with 2 buffers of zeros, then enable back to back.
@@ -252,6 +258,25 @@ The realistic underrun cause is not DSP load but SPI flash writes: an NVS write 
 - fs measurement: count received frames per second in the `on_recv` callback; 44100 vs 48000 vs 32000 separate cleanly.
 - Mute state machine: ERROR high → XSMT low, output zeros. ERROR low for 100 ms → classify PCM vs IEC 61937 → output two valid buffers → XSMT high. Muting also on every rate or format change, since the PCM5102A soft-mute ramp takes 150 ts + 0.2 ms ≈ 3.3 ms and avoids the pop.
 - Volume: digital gain in the ESP32 before conversion to 32-bit output; with 16-bit sources and a 32-bit DAC there is no resolution loss until beyond −48 dB. Read the encoder with the PCNT peripheral in quadrature mode with its glitch filter enabled.
+
+## 5.6 Transmission lines on a single-sided board
+
+Worth stating explicitly because the usual formula does not apply here. The board has copper on one side only, so a trace is **not** microstrip: there is no return conductor under it. It is a coplanar waveguide with the ground pour beside it and air and FR4 below, which puts roughly half the field in each, so the effective permittivity is (εr + 1)/2 ≈ 2.65 rather than 3.3. Using a microstrip formula would predict about 110 Ω for a 1 mm trace on 1.6 mm FR4 and would be meaningless.
+
+| Track width | Z0 | Propagation delay |
+|---|---|---|
+| 0.5 mm | 105 Ω | 5.43 ps/mm |
+| 0.8 mm | 92 Ω | 5.43 ps/mm |
+| 1.0 mm | 86 Ω | 5.43 ps/mm |
+| 1.5 mm | 77 Ω | 5.43 ps/mm |
+
+Three consequences.
+
+**The board is at the boundary where termination matters at all.** At 5.43 ps/mm a 2 ns edge has a critical length of about 61 mm on the usual rise-time-over-six rule. The BCK and LRCK nets span the board and exceed it; the point-to-point data lines at 45 mm do not. So the series resistors are doing real work on the clocks and are insurance on the data lines.
+
+**56 Ω is the right series value, not 33 Ω.** With a 0.8 mm trace at 92 Ω and a CMOS output impedance of 25 to 40 Ω, the resistor that makes the source match is 52 to 67 Ω. The DIR9001 datasheet gives only a DC bound on its output drive, so tune on a scope at the far pad if the edges ring.
+
+**Mill tolerance is not the problem people expect.** ±0.1 mm on both the trace and the gap moves Z0 by about ±7 Ω, and the FR4 permittivity spread over 4.2 to 4.6 moves it by under 2 Ω. What does vary is the pour: where the ground retreats from a trace the local impedance rises, so the number is a nominal, not a controlled-impedance spec.
 
 ## 6. Bring-up order
 
