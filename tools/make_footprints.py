@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Generate lib/Surround.pretty: the footprints the stock libraries cannot give us.
 
-Every pad gap here is audited against the 0.8 mm end mill (see design notes):
-  * 2.54 mm socket rows come out at 0.84 mm pad-to-pad (fixed by the pin pitch;
-    documented .kicad_dru exception, the tool still clears it in one pass),
-  * everything else is >= 1.9 mm.
-Panel-mount parts (encoder, RCA/TRS jacks) are brought to the board on a 5-pin
-header and 5.08 mm screw terminals whose pad NUMBERS match the schematic
-symbols' pin names (A B C S1 S2 / T S / T R S), so KiCad links them directly.
+Every pad gap here clears the 0.50 mm clearance of the ball-mill rules: the
+2.54 mm socket rows come out at 0.84 mm pad-to-pad, everything else is wider.
+Only the WROOM-32 castellations (0.37 mm, from the skill's esp32 library) need a
+.kicad_dru exception. Panel jacks are brought to the board on 5.08 mm screw
+terminals whose pad NUMBERS match the schematic symbols' pin names (T S / T R S),
+so KiCad links them directly.
 """
 import re
 from pathlib import Path
@@ -61,52 +60,35 @@ def footprint(name, descr, body, ref_y, val_y, crt, fab, extra=""):
     print("wrote", name)
 
 
-# ---------------------------------------------------------------- ESP32-DevKitC V4
-# Two 1x19 socket rows, 25.4 mm apart (official Espressif DevKitC V4; clones
-# with 22.86 mm rows exist -- measure yours and change ROW). Pad numbers are the
-# symbol's: 1-19 left row top to bottom (3V3 ... 5V), 20-38 right row (GND ... CLK).
-ROW = 25.4
-pitch = 2.54
-top = -9 * pitch
-body = []
-for i in range(19):
-    y = top + i * pitch
-    body.append(pad(str(1 + i), -ROW / 2, y, shape="rect" if i == 0 else "oval", size=(1.7, 1.7)))
-    body.append(pad(str(20 + i), ROW / 2, y, shape="oval", size=(1.7, 1.7)))
-extra = text("USB", 0, 29.5, size=1.2) + text("3V3", -ROW / 2 - 4.5, top) + text("GND", ROW / 2 + 4.5, top)
-footprint("ESP32-DevKitC-38_Sockets",
-          "ESP32-DevKitC V4 (38 pin) on two 1x19 2.54 mm sockets, 25.4 mm row spacing; USB end at +y",
-          "".join(body), -30.5, 30.5, (-15.0, -28.5, 15.0, 28.5), (-13.95, -27.2, 13.95, 27.2), extra)
-
 # ---------------------------------------------------------------- GY-PCM5102 carrier
-# Module lying along x. West column: the 1x6 socket for the module header
-# (VIN GND LCK DIN BCK SCK = pads 1-6) plus one wire pad in line for the flying
-# lead from the module's XSMT pad (pad 7). East column: wire pads for the
-# module's L / R / GND output pads (8-10) at 5.08 mm. Every input therefore faces
-# the ESP32 and every output faces the jack terminals. Body ~32 x 22 mm --
-# verify against the board in hand.
-body = []
-for i in range(6):
-    body.append(pad(str(1 + i), -13.0, -6.35 + i * pitch, shape="rect" if i == 0 else "oval"))
-# XSMT deliberately OFF the header column: three nets (BCK, LRCK, XSMT) touching the
-# same three pad rows (ESP32 row, both DAC headers) is a K3,3 that forces a wire
-# bridge on one layer; a lone pad breaks it (place_floor.py: floor 1 -> 0).
-body.append(pad("7", -7.0, 10.0, size=(2.0, 2.0), drill=1.0))
-for i, n in enumerate(("8", "9", "10")):
-    body.append(pad(n, 13.0, -5.08 + i * 5.08, size=(2.2, 2.2), drill=1.1))
-extra = text("VIN", -13.0, -8.6, size=0.7) + text("SCK", -13.0, 8.3, size=0.7) + text("XSMT", -7.0, 12.4, size=0.7)
-extra += "".join(text(t, 15.6, -5.08 + i * 5.08, size=0.7) for i, t in enumerate(["L", "R", "AGND"]))
-footprint("GY-PCM5102_Carrier",
-          "GY-PCM5102 DAC module on a 1x6 socket plus wire pads (XSMT west; OUTL, OUTR, AGND east)",
-          "".join(body), -13.5, 13.5, (-17.0, -12.5, 17.0, 14.0), (-16.0, -11.5, 16.0, 11.5), extra)
+# Module lying along x, header column at the local west edge. Column: the 1x6
+# socket for the module header (VIN GND LCK DIN BCK SCK = pads 1-6). East column:
+# wire pads for the module's L / R / GND output pads (8-10) at 5.08 mm. Pad 7 is
+# the flying lead from the module's XSMT pad; it sits well clear of the column,
+# 10 mm beyond it on the routing side, so XSMT does not have to enter the column
+# with the clocks, and its position differs between the two DACs so both land in
+# the same pocket of copper.
+#
+# The 32 x 24 mm outline on F.Fab is a RESERVATION, not a measurement: the largest
+# figure sellers quote for this board, with the header 3 mm inside one end. Nobody
+# has measured the AYWHP module yet. Check against the module before cutting. The
+# courtyard covers only the socket, because low parts sit under the module on its
+# 8.5 mm socket; tools/surround_board.py checks tall parts against the outline.
+def dac_footprint(name, xsmt_y):
+    body = []
+    for i in range(6):
+        body.append(pad(str(1 + i), -13.0, -6.35 + i * pitch, shape="rect" if i == 0 else "oval"))
+    body.append(pad("7", -23.0, xsmt_y, size=(2.0, 2.0), drill=1.0))
+    for i, n in enumerate(("8", "9", "10")):
+        body.append(pad(n, 13.0, -5.08 + i * 5.08, size=(2.2, 2.2), drill=1.1))
+    extra = text("VIN", -13.0, -8.6, size=0.7) + text("SCK", -13.0, 8.3, size=0.7) + text("XSMT", -23.0, xsmt_y + 2.4, size=0.7)
+    extra += "".join(text(t, 15.6, -5.08 + i * 5.08, size=0.7) for i, t in enumerate(["L", "R", "AGND"]))
+    footprint(name, "PCM5102 DAC module on a 1x6 socket plus wire pads (XSMT; OUTL, OUTR, AGND); 32 x 24 mm reserved, unmeasured",
+              "".join(body), -13.5, 13.5, (-14.35, -7.9, -11.65, 7.9), (-16.0, -12.0, 16.0, 12.0), extra)
 
-# ---------------------------------------------------------------- encoder header
-# Pads named A B C S1 S2 to match Device:RotaryEncoder_Switch; panel encoder on 5 wires.
-names = ["A", "B", "C", "S1", "S2"]
-body = "".join(pad(n, -5.08 + i * pitch, 0, shape="rect" if i == 0 else "oval") for i, n in enumerate(names))
-extra = "".join(text(n, -5.08 + i * pitch, -2.9, size=0.7) for i, n in enumerate(names))
-footprint("PinHeader_1x05_Encoder", "1x05 2.54 mm header, pads A B C S1 S2, for a panel-mount encoder",
-          body, -4.5, 4.5, (-6.85, -1.8, 6.85, 1.8), (-6.35, -1.27, 6.35, 1.27), extra)
+pitch = 2.54
+dac_footprint("GY-PCM5102_Carrier_XSMT_S", 10.0)     # lower DAC: rotated, pad lands north of it
+dac_footprint("GY-PCM5102_Carrier_XSMT_N", -10.0)    # upper DAC: rotated, pad lands south of it
 
 # ---------------------------------------------------------------- terminal blocks
 # Vendored bornier-2 / -3 (KiCad 10 dropped them) with pad numbers renamed to
@@ -121,42 +103,51 @@ def vendored(src_name, dst_name, mapping, descr):
     (LIB / f"{dst_name}.kicad_mod").write_text(s, encoding="utf-8")
     print("wrote", dst_name)
 
+vendored("TerminalBlock_bornier-2_P5.08mm", "TerminalBlock_2P_P5.08mm", {},
+         "2-pin 5.08 mm screw terminal, pads 1/2, for the supply (vendored bornier-2)")
 vendored("TerminalBlock_bornier-2_P5.08mm", "TerminalBlock_TS_P5.08mm", {"1": "T", "2": "S"},
          "2-pin 5.08 mm screw terminal, pads T/S, for a panel-mount RCA jack (vendored bornier-2)")
 vendored("TerminalBlock_bornier-3_P5.08mm", "TerminalBlock_TRS_P5.08mm", {"1": "T", "2": "R", "3": "S"},
          "3-pin 5.08 mm screw terminal, pads T/R/S, for a panel-mount TRS jack (vendored bornier-3)")
 
-# ---------------------------------------------------------------- barrel jack, milled
-# The stock BarrelJack_Horizontal puts 3.5 mm square pads over 1.0 x 3.0 mm slots,
-# so the ring across the slot is 0.25 mm: too thin to survive an isolation pass with
-# any registration error, and KiCad's annular_width check rejects it. Same body and
-# the same slots, but each pad becomes an oval grown along the slot's SHORT axis, so
-# the thinnest ring is 0.8 mm. The limit is pad 3, which sits 4.7 mm from pad 1 and
-# must still leave the 0.8 mm the end mill needs between them.
-STOCK_BJ = Path("/usr/share/kicad/footprints/Connector_BarrelJack.pretty/BarrelJack_Horizontal.kicad_mod")
-SIZES = {"1": (3.0, 4.6), "2": (3.0, 4.6), "3": (4.6, 3.0)}
-out, num = [], None
-for line in STOCK_BJ.read_text(encoding="utf-8").splitlines(keepends=True):
-    m = re.match(r'\s*\(pad "(\d+)"', line)
-    if m:
-        num = m.group(1)
-    if num in SIZES and re.match(r"\s*\(size ", line):
-        w, h = SIZES[num]
-        line = re.sub(r"\(size [\d.]+ [\d.]+\)", f"(size {w} {h})", line)
-        num = None
-    out.append(line)
-bj = "".join(out)
-bj = bj.replace('(footprint "BarrelJack_Horizontal"', '(footprint "BarrelJack_Horizontal_MilledPads"')
-bj = re.sub(r'\(property "Value" "[^"]*"', '(property "Value" "BarrelJack_Horizontal_MilledPads"', bj)
-bj = bj.replace("thru_hole rect", "thru_hole oval")
-(LIB / "BarrelJack_Horizontal_MilledPads.kicad_mod").write_text(bj, encoding="utf-8")
-print("wrote BarrelJack_Horizontal_MilledPads")
+# ---------------------------------------------------------------- long resistor
+# P12.70: KiCad stops at 10.16 then jumps to 15.24 for this body. Long enough to
+# carry +5V_DAC2 over both clocks and the DAC1 data stub, see tools/surround_board.py.
+STOCK_R = Path("/usr/share/kicad/footprints/Resistor_THT.pretty/R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal.kicad_mod")
+r = STOCK_R.read_text(encoding="utf-8")
+r = r.replace('R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal', 'R_Axial_DIN0207_L6.3mm_D2.5mm_P12.70mm_Horizontal')
+r = r.replace('(at 10.16 0)', '(at 12.7 0)').replace('(at 5.08 ', '(at 6.35 ')
+r = re.sub(r'\(fp_rect\s+\(start -1\.05 -1\.5\)\s+\(end 11\.21 1\.5\)', '(fp_rect\n\t\t(start -1.05 -1.5)\n\t\t(end 13.75 1.5)', r)
+(LIB / "R_Axial_DIN0207_L6.3mm_D2.5mm_P12.70mm_Horizontal.kicad_mod").write_text(r, encoding="utf-8")
+print("wrote R_Axial_P12.70")
 
-# ---------------------------------------------------------------- PTC fuse, 0.8 mm drill
-# Stock Fuse_Bourns_MF-RHT100 drills 0.71 mm, under the process minimum hole.
-body = pad("1", 0, 0, size=(1.9, 1.9), drill=0.9, shape="rect") + pad("2", 5.1, 1.2, size=(1.9, 1.9), drill=0.9)
-footprint("Fuse_Bourns_MF-R110_P5.1mm", "Bourns MF-R110 radial PTC, 5.1 mm lead spacing, 0.9 mm drill",
-          body, -2.6, 4.5, (-2.7, -1.5, 7.8, 2.9), (-2.0, -0.8, 7.1, 2.0))
+# ---------------------------------------------------------------- electrolytic, formed leads
+# A 1 uF 50 V can is 5 mm across on 2 mm leads. Formed out to 3.5 mm, a track fits
+# between them, which is what lets C11 span the 3V3 line. Pads of the stock D8 part.
+c = (Path("/usr/share/kicad/footprints/Capacitor_THT.pretty/CP_Radial_D8.0mm_P3.50mm.kicad_mod")).read_text(encoding="utf-8")
+c = c.replace("CP_Radial_D8.0mm_P3.50mm", "CP_Radial_D5.0mm_P3.50mm_FormedLeads")
+c = re.sub(r"\(fp_(?:circle|line|arc|poly|rect)\s.*?\n\t\)\n", "", c, flags=re.S)
+c = c.replace("\t(pad ", rect(-1.05, -2.7, 4.55, 2.7, "F.CrtYd") + "\t(pad ", 1)
+(LIB / "CP_Radial_D5.0mm_P3.50mm_FormedLeads.kicad_mod").write_text(c, encoding="utf-8")
+print("wrote CP_Radial_D5.0mm_P3.50mm_FormedLeads")
+
+# ---------------------------------------------------------------- WROOM-32
+# The skill's no-via footprint. Its antenna keep-out spans +/-24 mm and 21 mm north,
+# sized for a board-edge antenna with RF in use. Wi-Fi and Bluetooth are off in this
+# design, so it shrinks to the module's own width: no copper under the antenna, and
+# the corner beside it is free for the 3V3 bulk cap and the UART.
+e = (Path.home() / ".claude/skills/kicad-laser-pcb/lib/esp32.pretty/ESP32-WROOM-32_NoVias.kicad_mod").read_text(encoding="utf-8")
+e = e.replace("-30.74", "-16.0")
+e = re.sub(r"\(start -24 ", "(start -10 ", e); e = re.sub(r"\(end -24 ", "(end -10 ", e)
+e = re.sub(r"\(start 24 ", "(start 10 ", e); e = re.sub(r"\(end 24 ", "(end 10 ", e)
+e = re.sub(r"\(xy -24 ", "(xy -10 ", e); e = re.sub(r"\(xy 24 ", "(xy 10 ", e)
+(LIB / "ESP32-WROOM-32_NoVias.kicad_mod").write_text(e, encoding="utf-8")
+print("wrote ESP32-WROOM-32_NoVias")
+
+# ---------------------------------------------------------------- TO-220, mill pads
+(LIB / "TO-220-3_Vertical_LaserPads.kicad_mod").write_text(
+    (SKILL_LIB / "TO-220-3_Vertical_LaserPads.kicad_mod").read_text(encoding="utf-8"), encoding="utf-8")
+print("wrote TO-220-3_Vertical_LaserPads (copied)")
 
 # ---------------------------------------------------------------- LED with mill-safe pads
 (LIB / "LED_D3.0mm_P5.08mm_LaserPads.kicad_mod").write_text(

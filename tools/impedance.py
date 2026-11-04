@@ -26,7 +26,8 @@ import math
 
 EPS_R = 4.3          # FR4 at audio/low RF; 4.2-4.6 across suppliers
 T_CU = 0.035         # mm, 1 oz copper
-CLEARANCE = 0.85     # mm, the cnc netclass gap = what the 0.8 mm mill leaves
+CLEARANCE = 0.50     # mm, the cnc-fine netclass gap (0.8 mm ball mill, 0.44 mm channel)
+TRACK = 0.90         # mm, the ESP netclass: the width of the module's pads
 
 
 def k_ratio(k):
@@ -54,26 +55,26 @@ def r_dc(w, length_mm, t=T_CU):
 
 
 if __name__ == "__main__":
-    print(f"FR4 eps_r {EPS_R}, coplanar gap {CLEARANCE} mm (set by the 0.8 mm end mill)\n")
+    print(f"FR4 eps_r {EPS_R}, coplanar gap {CLEARANCE} mm (0.8 mm ball mill)\n")
     print(f"{'width':>7} {'Z0':>8} {'tpd':>9} {'C':>9}   {'crit. length, tr=2ns':>22}")
     print(f"{'mm':>7} {'ohm':>8} {'ps/mm':>9} {'pF/mm':>9}   {'mm':>22}")
-    for w in (0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0):
+    for w in (0.3, 0.5, 0.8, 1.0, 1.5):
         z0, tpd, _ = z0_cpw(w, CLEARANCE)
         c = tpd / z0                                # pF/mm
         crit = (2000.0 / 6.0) / tpd                 # tr/6 rule
         print(f"{w:7.1f} {z0:8.1f} {tpd:9.2f} {c:9.3f}   {crit:22.0f}")
 
-    print("\nMill tolerance on the chosen 0.8 mm I2S trace:")
-    for dw, ds, label in ((0, 0, "nominal"), (-0.1, +0.1, "mill cuts wide"),
-                          (+0.1, -0.1, "mill cuts narrow")):
-        z0, _, _ = z0_cpw(0.8 + dw, CLEARANCE + ds)
-        print(f"  w {0.8+dw:4.2f}  s {CLEARANCE+ds:4.2f}   Z0 {z0:5.1f} ohm   ({label})")
-    lo, _, _ = z0_cpw(0.8, CLEARANCE, 4.6)
-    hi, _, _ = z0_cpw(0.8, CLEARANCE, 4.2)
+    print(f"\nMill tolerance on the chosen {TRACK} mm I2S trace:")
+    for dw, ds, label in ((0, 0, "nominal"), (-0.03, +0.03, "mill cuts wide"),
+                          (+0.03, -0.03, "mill cuts narrow")):
+        z0, _, _ = z0_cpw(TRACK + dw, CLEARANCE + ds)
+        print(f"  w {TRACK+dw:4.2f}  s {CLEARANCE+ds:4.2f}   Z0 {z0:5.1f} ohm   ({label})")
+    lo, _, _ = z0_cpw(TRACK, CLEARANCE, 4.6)
+    hi, _, _ = z0_cpw(TRACK, CLEARANCE, 4.2)
     print(f"  eps_r 4.2-4.6                Z0 {hi:5.1f}-{lo:.1f} ohm")
 
-    z0, tpd, _ = z0_cpw(0.8, CLEARANCE)
-    print(f"\nSeries source termination for the 0.8 mm signal track, "
+    z0, tpd, _ = z0_cpw(TRACK, CLEARANCE)
+    print(f"\nSeries source termination for the {TRACK} mm signal track, "
           f"Z0 = {z0:.0f} ohm  (Rs = Z0 - Zdriver):")
     for name, zout, note in (("DIR9001 CMOS out", 25, "R1/R2/R3, datasheet gives only a DC bound"),
                              ("DIR9001 CMOS out", 40, "  same, if the driver is weaker"),
@@ -81,13 +82,7 @@ if __name__ == "__main__":
                              ("ESP32 GPIO, 40 mA drive", 25, "  if drive strength is raised")):
         print(f"  {name:34s} Zout {zout:3d}  ->  Rs {z0-zout:5.0f} ohm   {note}")
 
-    print(f"\nTrack pitch (width + clearance) and what fits the 4.45 mm corridor:")
-    for w in (1.5, 1.0, 0.8, 0.6):
-        pitch = w + CLEARANCE
-        n = int((4.45 - CLEARANCE) // pitch)
-        print(f"  {w:4.2f} mm track -> {pitch:4.2f} mm pitch -> {n} track(s)")
-
-    print("\nPower rail DC drop, 1.5 mm POWER class, 1 oz copper:")
+    print("\nPower rail DC drop, 1.0 mm POWER class, 1 oz copper:")
     for ln in (50, 100, 150):
-        r = r_dc(1.5, ln)
+        r = r_dc(1.0, ln)
         print(f"  {ln:3d} mm  R {r:5.1f} mOhm   drop at 0.5 A: {r*0.5:5.1f} mV")

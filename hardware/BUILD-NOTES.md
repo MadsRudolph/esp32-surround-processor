@@ -1,51 +1,50 @@
 # Build notes
 
-Generated from `hardware/surround.routed.kicad_pcb` by `tools/build_notes.py`.
+Generated from `hardware/surround.kicad_pcb` by `tools/build_notes.py`.
 Do not edit by hand; re-run the tool after any change to the board.
+
+## Before cutting
+
+Three things are assumed, not measured. Check each against the part in hand:
+
+- **DAC modules (AYWHP PCM5102).** Sellers quote sizes from 29 x 16 to 32 x 24 mm.
+  The board reserves 32 x 24 mm with the 6-pin header 3 mm inside one end. Measure
+  the module, its pin order, and where the jack and the XSMT pad are.
+- **DIR9001 module.** The 1x10 pinout of A2 is unverified: VCC, GND, SCKO, BCKO,
+  LRCKO, DOUT, ERROR, AUDIO, FMT0, FMT1. Its body is assumed to overhang the east edge.
+- **WROOM-32 castellations on the ball mill.** Never cut before. Cut
+  `hardware/coupon` first and meter every neighbouring pad pair.
 
 ## Wire links
 
-The board is single sided: the only copper the mill cuts is on the bottom.
-Every link below is a **wire soldered on the component side between two
-through-hole pads**. No via is drilled for any of them, because a through-hole
-pad already exists on both sides of the board.
+The board is single sided: the only copper the mill cuts is on the bottom. A link
+is an insulated solid-core wire, 0.4 to 0.5 mm. Lap it onto the two pads on the
+copper side, since socket pins fill the holes. The I2S clocks and data and the DAC
+outputs may not be links; `tools/wire_links.py` fails the build if one appears.
 
-Only DC rails, ground, and slow control lines are allowed to be links. The I2S
-clock and data nets and the DAC outputs are pinned to milled copper for the
-whole route, because a wire standing off the board is an uncontrolled-impedance
-stub with a large loop area, which is the wrong thing to hang a 3 MHz clock or a
-line-level audio output on. `tools/wire_links.py` fails the build if one appears
-on a net that is not allowed to carry it.
-
-Use insulated solid core, 0.4 to 0.5 mm. Keep each wire flat against the board.
-
-19 links, 737 mm of wire in total.
+2 link(s), 29 mm of wire in total.
 
 | Net | From | To | Length |
 |---|---|---|---:|
-| `+3V3` | A2.10 | A1.1 | 26.9 mm |
-| `+5V` | FB3.1 | FB1.1 | 63.3 mm |
-| `+5V` | C1.1 | F1.2 | 9.2 mm |
-| `+5V_DAC1` | A3.1 | C2.1 | 61.0 mm |
-| `+5V_DAC2` | C3.1 | A4.1 | 30.5 mm |
-| `+5V_DIR` | FB3.2 | C4.1 | 5.3 mm |
-| `GND` | R10.2 | A1.14 | 94.8 mm |
-| `GND` | C1.2 | A3.6 | 40.0 mm |
-| `GND` | A1.20 | A2.2 | 29.0 mm |
-| `GND` | SW1.C | C3.2 | 24.6 mm |
-| `GND` | J6.S | R9.2 | 16.1 mm |
-| `GND` | R11.2 | D1.1 | 5.7 mm |
-| `Net-(A1-IO36{slash}VP)` | A2.8 | A1.3 | 32.8 mm |
-| `Net-(A1-IO39{slash}VN)` | A1.4 | A2.7 | 35.7 mm |
-| `Net-(F1-Pad1)` | F1.1 | J1.1 | 7.7 mm |
-| `SCL` | A1.22 | J7.3 | 73.9 mm |
-| `SDA` | J7.4 | A1.25 | 78.1 mm |
-| `XSMT` | A4.7 | R11.1 | 53.9 mm |
-| `XSMT` | A1.10 | A3.7 | 48.9 mm |
+| `GND` | TP1.1 | TP2.1 | 17.5 mm |
+| `GND` | A3.6 | A3.2 | 11.5 mm |
 
-The ground links are not optional. On a single-sided board every track is a slot
-cut through the ground pour, and without these wires the pour fills as nine
-separate islands with no return path between them.
+Neither is optional. A3.6, A4.2 and C3 sit between the two clock runs, and the
+A3 wire is their only DC path to the rest of the pour. TP1 to TP2 is the DIR9001's
+short return across the clocks; without it the return runs about 150 mm round the board.
+
+## Assembly order
+
+1. U1 first, flat on the milled side. Tack two opposite corners, then drag-solder the
+   castellations. Leave the centre pad unsoldered.
+2. Meter neighbouring pins for bridges, especially 1/2/3, 34/35 and 25/26.
+3. The ground links, then the low through-hole parts, the sockets, and the regulators last.
+4. Power only: 5.0 V at U2, and 3.2 to 3.3 V at U1 pin 2, before any module goes in.
+   C11 has its leads formed out to the 3.5 mm footprint.
+5. Leave room for the heatsink south of U3. U2 runs without one.
+
+Flashing: 3.3 V UART cable on J2 (pin 1 TXD0, pin 2 RXD0, pin 3 GND; cable RX to TXD0). Hold BOOT, tap
+RESET, release.
 
 ## Module straps
 
@@ -53,27 +52,48 @@ Set these on the modules before fitting them.
 
 | Module | Strap | Value |
 |---|---|---|
-| DIR9001 | FMT1, FMT0 | both HIGH: 24-bit I2S |
+| DIR9001 | FMT1, FMT0 | both HIGH via the socket: 24-bit I2S |
 | DIR9001 | CKSEL | LOW: always the recovered PLL clock |
 | DIR9001 | XTI | to DGND, no crystal fitted |
 | DIR9001 | PSCK1, PSCK0 | both LOW: SCKO at 128 fs, unused |
-| GY-PCM5102 (both) | SCK | to GND: 3-wire BCK-PLL mode |
-| GY-PCM5102 (both) | FMT | LOW: I2S |
-| GY-PCM5102 (both) | FLT | LOW: normal latency filter |
-| GY-PCM5102 (both) | DEMP | LOW: de-emphasis off |
-| GY-PCM5102 (both) | XSMT | bridge removed, wired to the carrier |
+| PCM5102 (both) | SCK | to GND via the socket: 3-wire BCK-PLL mode |
+| PCM5102 (both) | FMT | LOW: I2S |
+| PCM5102 (both) | FLT | LOW: normal latency filter |
+| PCM5102 (both) | DEMP | LOW: de-emphasis off |
+| PCM5102 (both) | XSMT | bridge removed, flying lead to pad 7 of its footprint |
+| PCM5102 (both) | L, R, AGND | flying leads to pads 8, 9, 10 |
+
+## Parts
+
+| Part | Qty | Source |
+|---|---:|---|
+| ESP32-WROOM-32 | 1 | shop: EKB basement stock, ask for it |
+| DIR9001 module with TOSLINK | 1 | buy |
+| PCM5102 module (AYWHP) | 2 | buy: bought, 3 in hand with one spare |
+| RCA panel jack, TRS panel jack | 2 + 2 | buy: order list |
+| 9 V 1 A adapter, centre positive | 1 | buy: order list |
+| 10K potentiometer | 1 | shop |
+| LM7805, LM317T, TO-220 heatsink | 1 + 1 + 1 | shop |
+| 1N5817, 1N4003 | 1 + 1 | shop |
+| 43R2 (R1-R5) | 5 | shop |
+| 100R (R6-R9) | 4 | shop, 1 at home |
+| 10k (R11, R14, R15) | 3 | home |
+| 10R (R17-R19) | 3 | home 2, shop 1 |
+| 1k (R16, R20) | 2 | home 1, shop 1 |
+| 332R, 243R, 392R | 1 each | shop |
+| 470 uF (C1) | 1 | home: 16 V, fine on 3V3 |
+| 100 uF (C2-C4) | 3 | shop |
+| 10 uF 50 V (C5, C8) | 2 | home |
+| 100 nF (C6, C7, C9) | 3 | shop |
+| 1 uF 50 V (C11) | 1 | shop |
+| 3 mm LED | 2 | shop |
+| 6 mm pushbutton | 3 | shop |
+| 2-pole, 3-pole screw terminal | 3 + 2 | shop |
+| Female header 1x10, 1x6 | 1 + 2 | shop |
+| Male header 1x3 | 2 | shop |
+| TP1, TP2 | 2 | bare pads, nothing to fit |
 
 ## Panel parts
 
-The audio jacks and the encoder are panel mounted and wired to the board, because
-every PCB-mount RCA, TRS and EC11 footprint has pad gaps under the 0.8 mm the end
-mill needs. J3 and J4 are the front outputs on 2-pin terminals, J5 and J6 the
-surrounds on 3-pin terminals, SW1 a 5-pin header for the encoder.
-
-## Still open
-
-These are **not finished** and must be completed in the KiCad board editor
-before the board is cut:
-
-- Zone 'GND_pour' [GND] on B.Cu, priority 0 to Zone 'GND_pour' [GND] on B.Cu, priority 0
-- PTH pad 4 [Net-(A3-DIN)] of A3 to PTH pad 2 [Net-(A3-DIN)] of R4
+J1 takes the 9 V adapter (centre positive; pad 1 is +). J3 and J4 are the RCA fronts,
+J5 and J6 the TRS surrounds. J7 is the volume pot: 3V3, wiper, GND.

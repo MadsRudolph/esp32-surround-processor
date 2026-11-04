@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Netlist JSON -> hardware/surround.kicad_pcb with footprints, nets, outline,
-mounting holes, a B.Cu GND pour and the cnc netclass. Linux port of the
+mounting holes, a B.Cu GND pour and the cnc-fine netclass. Linux port of the
 kicad-laser-pcb skill's pcb_build.py (which joins paths with backslashes).
 
     python3 tools/pcb_bootstrap.py [WxH mm]      # default 120x100
 
-Parts land on a coarse grid only so the file is valid; placement is done by
-the kicad-place DSL (tools/surround.place.py) afterwards.
+Parts land on a coarse grid only so the file is valid; tools/surround_board.py
+places and routes them afterwards.
 """
 import json, os, sys, math
 from pathlib import Path
@@ -20,8 +20,7 @@ LIB_ROOTS = [ROOT / "lib", Path.home() / ".claude/skills/kicad-laser-pcb/lib",
              Path("/usr/share/kicad/footprints")]
 W, H = (float(v) for v in (sys.argv[1] if len(sys.argv) > 1 else "120x100").lower().split("x"))
 X0, Y0 = 20.0, 20.0
-CLEARANCE, TRACK = 0.85, 0.8          # cnc profile: 0.8 mm end mill cuts the GAP;
-#                                      the track itself may be narrower (see tools/netclasses.py)
+CLEARANCE, TRACK = 0.50, 0.50         # cnc-fine profile: 0.8 mm ball mill, 0.44 mm channel
 
 
 def load_fp(fpid):
@@ -56,12 +55,14 @@ for c in sorted(data["components"], key=lambda c: c["ref"]):
     fps[c["ref"]] = fp
 
 # four M3 mounting holes, locked, 4 mm in from the corners
-for i, (dx, dy) in enumerate([(4, 4), (W - 4, 4), (4, H - 4), (W - 4, H - 4)], 1):
+# H1 sits in from the corner: the output terminals line up with the DAC pads and fill it
+for i, (dx, dy) in enumerate([(15, 3.6), (W - 4, 4), (4, H - 4), (W - 4, H - 4)], 1):
     fp = load_fp("MountingHole:MountingHole_3.2mm_M3")
     fp.SetReference(f"H{i}"); fp.SetValue("M3")
     board.Add(fp)
     fp.SetPosition(VECTOR2I(FromMM(X0 + dx), FromMM(Y0 + dy)))
     fp.SetLocked(True)
+    fp.Reference().SetVisible(False)   # a screw hole in the corner needs no silk
     fps[f"H{i}"] = fp
 
 # provisional grid placement (bbox centres), 4 columns
@@ -92,7 +93,7 @@ z.SetLayer(pcbnew.B_Cu); z.SetNet(netmap["GND"]); z.SetZoneName("GND_pour")
 ol = z.Outline(); ol.NewOutline()
 for (px, py) in [(X0, Y0), (X0 + W, Y0), (X0 + W, Y0 + H), (X0, Y0 + H)]:
     ol.Append(FromMM(px), FromMM(py))
-z.SetLocalClearance(FromMM(CLEARANCE)); z.SetMinThickness(FromMM(0.8))
+z.SetLocalClearance(FromMM(CLEARANCE)); z.SetMinThickness(FromMM(0.5))
 # solid pad connection: no thermal spokes to starve or for the mill to nick;
 # the pads are hand-soldered into a plane the iron can keep up with
 z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
@@ -101,7 +102,7 @@ board.Add(z)
 
 ds = board.GetDesignSettings()
 ds.SetCopperLayerCount(2)
-ds.m_TrackMinWidth = FromMM(0.8)
+ds.m_TrackMinWidth = FromMM(TRACK)
 nc = board.GetAllNetClasses()["Default"]
 nc.SetTrackWidth(FromMM(TRACK)); nc.SetClearance(FromMM(CLEARANCE))
 # a via on this process is a drilled hole with a wire link through it

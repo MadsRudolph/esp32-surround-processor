@@ -75,24 +75,22 @@ An APLL at 12.288 MHz is free-running against the TV's crystal. At ±100 ppm the
 | DIR_DOUT | 34 | upper | I2S0 din | input-only pin |
 | DIR_LRCK | 35 | upper | I2S0 ws + I2S1 ws | input-only pin |
 | DIR_BCK | 32 | upper | I2S0 bclk + I2S1 bclk | |
-| XSMT (both DACs) | 26 | upper | GPIO | 10 kΩ to GND: muted through boot |
-| DAC1_DIN | 19 | lower | I2S0 dout | 56 Ω series at the ESP32 |
-| DAC2_DIN | 23 | lower | I2S1 dout | 56 Ω series at the ESP32 |
-| ENC_A | 16 | lower | PCNT quadrature | internal pull-up |
-| ENC_B | 17 | lower | PCNT quadrature | internal pull-up |
-| ENC_SW | 18 | lower | GPIO | internal pull-up |
-| I2C_SDA | 21 | lower | I2C0 | 4.7 kΩ pull-up on the OLED module |
-| I2C_SCL | 22 | lower | I2C0 | 4.7 kΩ pull-up on the OLED module |
+| XSMT (both DACs) | 21 | lower | GPIO | 10 kΩ to GND: muted through boot |
+| DAC1_DIN | 19 | lower | I2S0 dout | 43 Ω series at the ESP32 |
+| DAC2_DIN | 23 | lower | I2S1 dout | 43 Ω series at the ESP32 |
+| VOLUME_POT | 33 | upper | ADC1 | 1 kΩ in series at the ESP32; panel pot on flying leads |
+| BTN_USER | 18 | lower | GPIO | internal pull-up |
+| BOOT | 0 | lower | strap | 10 kΩ pull-up, button to GND |
+| RESET | EN | upper | | 10 kΩ pull-up, 1 µF and button to GND |
 | STATUS_LED | 4 | lower | GPIO | 330 Ω |
-| Spare | 5, 13, 14, 27, 33 | | | 5 pulses at boot, 13/14 are JTAG |
+| Spare | 5, 13, 14, 16, 17, 22, 25, 26, 27 | | | 5 pulses at boot, 13/14 are JTAG |
 
 Two things about this map are set by the board rather than by the peripheral.
 The five DIR9001 signals all sit on the **upper** pin row in the order the
 DIR9001's own pins meet them, so the bus fans out without crossing. The two DAC
 data lines sit on the **lower** row: the upper row is a 2.54 mm wall with only a
 20 mm channel behind it, already carrying the five DIR9001 signals, and a data
-line taken from there could not be routed on copper at all. The encoder is on
-16/17/18 because those three pads land directly above its own pads.
+line taken from there could not be routed on copper at all. 
 
 Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high or the flash runs at 1.8 V and the module bricks at boot), GPIO 1/3 (UART0 flashing and logs), GPIO 6–11 (SPI flash, fatal). GPIO 36/39 have an erratum where they glitch when the RTC ADC power-gates in light sleep; this design never sleeps, and they carry only status flags.
 
@@ -103,13 +101,13 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 ```
                               +5 V (class II adapter, 2 A)  ── PTC 1.1 A ── 470 µF
   ┌───────────────────────────────┬──────────────┬─────────────────┬──────────────────┐
-  │                               │ FB1 600Ω     │ FB2 600Ω        │ FB3 600Ω         │
+  │                               │ R17 10Ω      │ R18 10Ω         │ R19 10Ω          │
   │                            100 µF        100 µF             100 µF                │
   │                               │              │                 │                  │
   ▼ VIN                           ▼ VIN          ▼ VIN             ▼ VCC(5V/3V3*)     │
 ┌───────────────┐          ┌───────────┐   ┌───────────┐     ┌──────────────┐         │
 │ ESP-WROOM-32  │          │ DAC1      │   │ DAC2      │     │ DIR9001 brd  │◄─TOSLINK│
-│  devkit       │          │ PCM5102A  │   │ PCM5102A  │     │  + TORX      │         │
+│  module       │          │ PCM5102A  │   │ PCM5102A  │     │  + TORX      │         │
 │               │          │ FRONT L/R │   │ SURR L/R  │     │              │         │
 │ GPIO32 ◄──────┼──────────┤ BCK ◄─────┼───┤ BCK ◄─────┼──56Ω┤ BCKO         │         │
 │ GPIO35 ◄──────┼──────────┤ LRCK ◄────┼───┤ LRCK ◄────┼──56Ω┤ LRCKO        │         │
@@ -118,41 +116,43 @@ Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high
 │ GPIO36 ◄──────┼──────────┼───────────┼───┼───────────┼─────┤ AUDIO        │         │
 │ GPIO19 ──56Ω──┼─────────►│ DIN       │   │           │     │ FMT1=H FMT0=H│         │
 │ GPIO23 ──56Ω──┼──────────┼───────────┼──►│ DIN       │     │ CKSEL=L      │         │
-│ GPIO26 ───────┼──────────┤ XSMT      ├───┤ XSMT      │     │ XTI=DGND     │         │
+│ GPIO21 ───────┼──────────┤ XSMT      ├───┤ XSMT      │     │ XTI=DGND     │         │
 │   └─10k─GND   │          │ SCK=GND   │   │ SCK=GND   │     │ PSCK=LL      │         │
 │               │          │ FMT=L     │   │ FMT=L     │     │ RST: int. PU │         │
-│ GPIO18/19/23 ◄┼─ encoder │ FLT=L     │   │ FLT=L     │     └──────┬───────┘         │
-│ GPIO21/22 ◄──►┼─ OLED    │ DEMP=L    │   │ DEMP=L    │            │                 │
+│ GPIO33 ◄──────┼─ vol pot │ FLT=L     │   │ FLT=L     │     └──────┬───────┘         │
+│ GPIO18 ◄──────┼─ button  │ DEMP=L    │   │ DEMP=L    │            │                 │
 │               │          │ OUT L/R ──┼─► RCA ─► Fosi │ OUT L/R ──┼─► TRS ─► Eris 3.5│
 │ GND           │          │ GND       │   │ GND       │     GND    │                 │
 └──────┬────────┘          └─────┬─────┘   └─────┬─────┘     ───────┴─────            │
        │                         │               │                 │                  │
        └─────────────────────────┴───────────────┴─────────────────┴──── STAR GND ────┘
-                                                                     (at the 5 V input jack)
+                                                                     (at the 9 V input)  
 * check whether your DIR9001 breakout has an on-board 3.3 V LDO; if not, feed it 3.3 V from a
-  dedicated LDO, not from the ESP32 devkit's AMS1117.
+  dedicated LDO, not from the LM317 that feeds the ESP32.
 ```
 
 ### 4.2 Netlist
 
 | Net | From | To | Series R | Notes |
 |---|---|---|---|---|
-| DIR_BCK | DIR9001 BCKO | ESP32 GPIO32, DAC1 BCK, DAC2 BCK | 56 Ω at DIR9001 | 3 loads ≈ 50 pF, fine at 3 MHz |
-| DIR_LRCK | DIR9001 LRCKO | ESP32 GPIO35, DAC1 LRCK, DAC2 LRCK | 56 Ω at DIR9001 | |
-| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO34 | 56 Ω at DIR9001 | |
+| DIR_BCK | DIR9001 BCKO | ESP32 GPIO32, DAC1 BCK, DAC2 BCK | 43 Ω at DIR9001 | 3 loads ≈ 50 pF, fine at 3 MHz |
+| DIR_LRCK | DIR9001 LRCKO | ESP32 GPIO35, DAC1 LRCK, DAC2 LRCK | 43 Ω at DIR9001 | |
+| DIR_DOUT | DIR9001 DOUT | ESP32 GPIO34 | 43 Ω at DIR9001 | |
 | DIR_ERROR | DIR9001 ERROR | ESP32 GPIO39 | none | H = unlocked or parity error |
 | DIR_AUDIO | DIR9001 AUDIO | ESP32 GPIO36 | none | H = non-PCM (channel status bit 1) |
-| DAC1_DIN | ESP32 GPIO19 | DAC1 DIN | 56 Ω at ESP32 | |
-| DAC2_DIN | ESP32 GPIO23 | DAC2 DIN | 56 Ω at ESP32 | |
-| XSMT | ESP32 GPIO26 | DAC1 XSMT, DAC2 XSMT | none | 10 kΩ pull-down at ESP32 |
-| ENC_A/B/SW | encoder | GPIO18/19/23 | none | common to GND, 100 nF to GND each |
-| I2C | GPIO21/22 | OLED | none | 4.7 kΩ pull-ups |
-| +5V | adapter | ESP32 VIN; FB1→DAC1 VIN; FB2→DAC2 VIN; FB3→DIR board | | 100 µF after each bead |
+| DAC1_DIN | ESP32 GPIO19 | DAC1 DIN | 43 Ω at ESP32 | |
+| DAC2_DIN | ESP32 GPIO23 | DAC2 DIN | 43 Ω at ESP32 | |
+| XSMT | ESP32 GPIO21 | DAC1 XSMT, DAC2 XSMT | none | 10 kΩ pull-down at ESP32 |
+| VOLUME_POT | panel pot wiper | GPIO33 | 1 kΩ at ESP32 | 3V3 to GND across the pot |
+| BTN_USER | button | GPIO18 | none | to GND, internal pull-up |
+| +9V | adapter | 1N5817, then LM7805 and LM317 | | class II, 9 V 1 A, centre positive |
+| +3V3 | LM317 (243 Ω / 392 Ω) | ESP32 pin 2, DIR FMT straps, pot | | 470 µF + 100 nF at pin 2 |
+| +5V | LM7805 | R17→DAC1 VIN; R18→DAC2 VIN; R19→DIR board | | 10 Ω + 100 µF per module |
 | GND | star at jack | one wire per board | | signal wires twisted with a GND return |
 | FRONT_L/R | DAC1 OUT | Fosi RCA in | on-board 470 Ω + 2.2 nF | short cable |
 | SURR_L/R | DAC2 OUT | Eris 3.5 TRS in | 100 Ω tip, 100 Ω ring-to-GND | impedance-balanced, see 4.5 |
 
-Wire rules: every digital line under 10 cm, 56 Ω at the driving end, each clock twisted with a ground return or carried on ribbon cable with GND on alternating conductors. On the carrier board the traces are 0.8 mm with the ground pour beside them at the 0.85 mm mill gap, which is a 92 Ω coplanar line; 56 Ω plus a 25 to 40 Ω CMOS source sits on that, and `tools/impedance.py` in the repository derives it.
+Wire rules: every digital line under 10 cm, 43 Ω at the driving end, each clock twisted with a ground return or carried on ribbon cable with GND on alternating conductors. On the board the traces leaving the ESP32 are 0.9 mm, the width of its pads, with the ground pour beside them at the 0.50 mm ball-mill gap, which is a 76 Ω coplanar line; 43 Ω plus a 25 to 40 Ω CMOS source sits on that, and `tools/impedance.py` in the repository derives it.
 
 ### 4.3 PCM5102A board straps (GY-PCM5102 type)
 
@@ -162,7 +162,7 @@ Wire rules: every digital line under 10 cm, 56 Ω at the driving end, each clock
 | FMT | L | I2S | solder bridge to L |
 | FLT | L | normal FIR filter, 20 ts latency = 0.42 ms | bridge to L; low-latency IIR saves 0.34 ms and costs stopband, not worth it |
 | DEMP | L | de-emphasis off | bridge to L |
-| XSMT | GPIO26 | firmware mute | remove the H bridge, wire the centre pad to GPIO26 |
+| XSMT | GPIO21 | firmware mute | remove the H bridge, wire the centre pad to GPIO21 |
 | VIN | 5 V | on-board LDO to 3.3 V | logic inputs are 3.3 V, matches ESP32 |
 
 ### 4.4 DIR9001 board straps
@@ -178,8 +178,8 @@ Wire rules: every digital line under 10 cm, 56 Ω at the driving end, each clock
 
 ### 4.5 Power and grounding
 
-- **Supply:** one class-II 5 V adapter, never a PC USB port. A PC ties the processor to mains earth, and if the Eris 3.5 is earthed too you have a loop through the surround cable.
-- **Decoupling:** each board keeps its own 100 nF + 10 µF at the supply pin. Add a 600 Ω @ 100 MHz ferrite (BLM18PG601 class, DCR < 0.3 Ω) and 100 µF in front of each DAC board and the DIR board. The ESP32 draws 50–80 mA continuous with 200 mA spikes when cache misses hit the flash; with Wi-Fi and Bluetooth disabled in menuconfig the 500 mA RF bursts never happen. Disable dynamic frequency scaling too.
+- **Supply:** one class-II 9 V adapter, never a PC USB port. A PC ties the processor to mains earth, and if the Eris 3.5 is earthed too you have a loop through the surround cable.
+- **Decoupling:** each board keeps its own 100 nF + 10 µF at the supply pin. Add 10 Ω and 100 µF in front of each DAC board and the DIR board. The ESP32 draws 50–80 mA continuous with 200 mA spikes when cache misses hit the flash; with Wi-Fi and Bluetooth disabled in menuconfig the 500 mA RF bursts never happen. Disable dynamic frequency scaling too.
 - **Star ground:** the return of every board goes to the 5 V jack. Digital return current never passes through an RCA shield: each RCA jack's shield is tied only to its own DAC board GND at the jack.
 - **Loop inventory:** TOSLINK is galvanically isolated, so the TV contributes nothing. The Fosi amp runs from a floating class-II barrel supply. The Eris 3.5 uses a two-pin figure-8 mains cord on most revisions and therefore also floats; check yours. With everything floating there is no earth loop, and the RCA/TRS shields simply define one common reference.
 - **Long surround run:** the Eris master speaker sits behind the listener, so this is the cable that picks up hum. Its inputs are balanced TRS. Drive them impedance-balanced: tip = DAC output through 100 Ω, ring = 100 Ω to DAC GND, sleeve = DAC GND. The Eris input stage then rejects common-mode pickup even though the source is single-ended. If hum still appears, a 1:1 line isolation transformer on this run is the brute-force fix.
@@ -244,7 +244,7 @@ Latency is set by two things only: how far the audio task lags the RX DMA (one b
 
 Recommendation: 128 frames, 8 RX descriptors, 4 TX descriptors primed to 2. Front latency ≈ 8.5 ms; surrounds add the deliberate 20–30 ms Haas delay on top. DSP cost per 2.67 ms block: 4 outputs × 2 biquads × 128 frames ≈ 5 k cycles plus the delay line, under 100 µs on a 240 MHz core, a 25× deadline margin.
 
-The realistic underrun cause is not DSP load but SPI flash writes: an NVS write disables the flash cache on both cores for 5–40 ms, and any code running from flash stalls. Mark the audio task, DSP kernels and ISR-adjacent code `IRAM_ATTR`, keep their data in DRAM, and only persist the volume setting after a few seconds of encoder inactivity. The 21 ms RX slack rides through most of that; a TX underrun during a volume save produces one click and is acceptable.
+The realistic underrun cause is not DSP load but SPI flash writes: an NVS write disables the flash cache on both cores for 5–40 ms, and any code running from flash stalls. Mark the audio task, DSP kernels and ISR-adjacent code `IRAM_ATTR`, keep their data in DRAM, and only persist the volume setting after a few seconds of pot inactivity. The 21 ms RX slack rides through most of that; a TX underrun during a volume save produces one click and is acceptable.
 
 ### 5.4 AC-3 path
 
@@ -257,7 +257,7 @@ The realistic underrun cause is not DSP load but SPI flash writes: an NVS write 
 - Surround: S = 0.5 × (L − R), then 2nd-order Butterworth HPF at 100 Hz, 4th-order Butterworth LPF at 7 kHz as two cascaded biquads with Q = 0.5412 and Q = 1.3066, then a 20–30 ms circular delay (1440 floats at 48 kHz for 30 ms). Use `dsps_biquad_f32_ae32` from ESP-DSP. Recompute coefficients and delay length when the measured fs changes between 44.1 and 48 kHz.
 - fs measurement: count received frames per second in the `on_recv` callback; 44100 vs 48000 vs 32000 separate cleanly.
 - Mute state machine: ERROR high → XSMT low, output zeros. ERROR low for 100 ms → classify PCM vs IEC 61937 → output two valid buffers → XSMT high. Muting also on every rate or format change, since the PCM5102A soft-mute ramp takes 150 ts + 0.2 ms ≈ 3.3 ms and avoids the pop.
-- Volume: digital gain in the ESP32 before conversion to 32-bit output; with 16-bit sources and a 32-bit DAC there is no resolution loss until beyond −48 dB. Read the encoder with the PCNT peripheral in quadrature mode with its glitch filter enabled.
+- Volume: digital gain in the ESP32 before conversion to 32-bit output; with 16-bit sources and a 32-bit DAC there is no resolution loss until beyond −48 dB. Read the pot on ADC1 with averaging and some hysteresis, so a noisy wiper does not make the volume hunt.
 
 ## 5.6 Transmission lines on a single-sided board
 
@@ -265,18 +265,18 @@ Worth stating explicitly because the usual formula does not apply here. The boar
 
 | Track width | Z0 | Propagation delay |
 |---|---|---|
-| 0.5 mm | 105 Ω | 5.43 ps/mm |
-| 0.8 mm | 92 Ω | 5.43 ps/mm |
-| 1.0 mm | 86 Ω | 5.43 ps/mm |
-| 1.5 mm | 77 Ω | 5.43 ps/mm |
+| 0.3 mm | 105 Ω | 5.43 ps/mm |
+| 0.5 mm | 91 Ω | 5.43 ps/mm |
+| 0.9 mm | 76 Ω | 5.43 ps/mm |
+| 1.0 mm | 74 Ω | 5.43 ps/mm |
 
 Three consequences.
 
 **The board is at the boundary where termination matters at all.** At 5.43 ps/mm a 2 ns edge has a critical length of about 61 mm on the usual rise-time-over-six rule. The BCK and LRCK nets span the board and exceed it; the point-to-point data lines at 45 mm do not. So the series resistors are doing real work on the clocks and are insurance on the data lines.
 
-**56 Ω is the right series value, not 33 Ω.** With a 0.8 mm trace at 92 Ω and a CMOS output impedance of 25 to 40 Ω, the resistor that makes the source match is 52 to 67 Ω. The DIR9001 datasheet gives only a DC bound on its output drive, so tune on a scope at the far pad if the edges ring.
+**43 Ω is the right series value.** With a 0.9 mm trace at 76 Ω and a CMOS output impedance of 25 to 40 Ω, the resistor that makes the source match is 36 to 51 Ω, and the shop has 43.2 Ω. R4 and R5 sit at the DAC end because they carry DIN over the BCK run, so they damp rather than source-match; those lines are about 15 and 37 mm, under the 61 mm critical length. The DIR9001 datasheet gives only a DC bound on its output drive, so tune on a scope at the far pad if the edges ring.
 
-**Mill tolerance is not the problem people expect.** ±0.1 mm on both the trace and the gap moves Z0 by about ±7 Ω, and the FR4 permittivity spread over 4.2 to 4.6 moves it by under 2 Ω. What does vary is the pour: where the ground retreats from a trace the local impedance rises, so the number is a nominal, not a controlled-impedance spec.
+**Mill tolerance is not the problem people expect.** ±0.03 mm on both the trace and the gap, the ball mill's measured spread, moves Z0 by about ±2 Ω, and the FR4 permittivity spread over 4.2 to 4.6 moves it by under 2 Ω. What does vary is the pour: where the ground retreats from a trace the local impedance rises, so the number is a nominal, not a controlled-impedance spec.
 
 ## 6. Bring-up order
 

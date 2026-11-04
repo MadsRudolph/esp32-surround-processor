@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generate lib/Surround.kicad_sym: module-level symbols for the carrier board.
 
-The carrier hosts three breakout modules on pin headers, so the schematic
-wants one symbol per module with the header's pin numbers and useful names,
-not the bare ICs. Pins are grouped logically (inputs left, outputs right);
-the numbers are the physical header positions the footprints use.
+The DIR9001 and DAC breakouts sit on pin sockets, so the schematic wants one
+symbol per module with the header's pin numbers and useful names, not the bare
+ICs. Pins are grouped logically; the numbers are the physical positions the
+footprints use.
 """
 from pathlib import Path
 
@@ -58,29 +58,30 @@ def symbol(name, refprefix, left, right, half_w, descr, keywords):
 
 
 # ---------------------------------------------------------------- ESP32
-# Pin numbers are the physical 38-pin DevKitC V4 header positions:
-# left header 1-19 top to bottom (3V3 ... 5V), right header 20-38 (GND ... CLK).
+# Pin numbers are the WROOM-32 castellations. Grouped by what the carrier does
+# with them, not by position; the unused ones are at the bottom of each side.
 esp_left = [
-    ("5V", "19", "power_in"), ("3V3", "1", "power_out"), ("EN", "2", "input"),
-    ("IO36/VP", "3", "input"), ("IO39/VN", "4", "input"),
-    ("IO34", "5", "input"), ("IO35", "6", "input"), ("IO32", "7", "bidirectional"),
-    ("TX0/IO1", "23", "output"), ("RX0/IO3", "24", "input"),
-    ("SD0/IO7", "37", "bidirectional"), ("SD1/IO8", "36", "bidirectional"),
-    ("SD2/IO9", "16", "bidirectional"), ("SD3/IO10", "17", "bidirectional"),
-    ("CMD/IO11", "18", "bidirectional"), ("CLK/IO6", "38", "bidirectional"),
-    ("GND", "14", "power_in"), ("GND", "20", "passive"), ("GND", "26", "passive"),
+    ("3V3", "2", "power_in"), ("EN", "3", "input"),
+    ("IO36/VP", "4", "input"), ("IO39/VN", "5", "input"),
+    ("IO34", "6", "input"), ("IO35", "7", "input"), ("IO32", "8", "bidirectional"),
+    ("IO33", "9", "bidirectional"),
+    ("GND", "1", "power_in"), ("GND", "15", "passive"), ("GND", "38", "passive"),
+    ("IO25", "10", "bidirectional"), ("IO26", "11", "bidirectional"),
+    ("IO27", "12", "bidirectional"), ("IO14", "13", "bidirectional"),
+    ("IO12/MTDI", "14", "bidirectional"), ("IO13", "16", "bidirectional"),
+    ("SD2/IO9", "17", "bidirectional"), ("SD3/IO10", "18", "bidirectional"),
 ]
 esp_right = [
-    ("IO33", "8", "bidirectional"), ("IO25", "9", "bidirectional"),
-    ("IO26", "10", "bidirectional"), ("IO27", "11", "bidirectional"),
-    ("IO18", "28", "bidirectional"), ("IO19", "27", "bidirectional"),
-    ("IO23", "21", "bidirectional"), ("IO22", "22", "bidirectional"),
-    ("IO21", "25", "bidirectional"),
-    ("IO0/BOOT", "33", "bidirectional"), ("IO2", "34", "bidirectional"),
-    ("IO4", "32", "bidirectional"), ("IO5", "29", "bidirectional"),
-    ("IO12/MTDI", "13", "bidirectional"), ("IO13", "15", "bidirectional"),
-    ("IO14", "12", "bidirectional"), ("IO15/MTDO", "35", "bidirectional"),
-    ("IO16", "31", "bidirectional"), ("IO17", "30", "bidirectional"),
+    ("IO23", "37", "bidirectional"), ("IO19", "31", "bidirectional"),
+    ("IO21", "33", "bidirectional"), ("TXD0/IO1", "35", "output"),
+    ("RXD0/IO3", "34", "input"), ("IO18", "30", "bidirectional"),
+    ("IO4", "26", "bidirectional"), ("IO0/BOOT", "25", "bidirectional"),
+    ("IO22", "36", "bidirectional"), ("NC", "32", "no_connect"),
+    ("IO5", "29", "bidirectional"), ("IO17", "28", "bidirectional"),
+    ("IO16", "27", "bidirectional"), ("IO2", "24", "bidirectional"),
+    ("IO15/MTDO", "23", "bidirectional"), ("SD1/IO8", "22", "bidirectional"),
+    ("SD0/IO7", "21", "bidirectional"), ("CLK/IO6", "20", "bidirectional"),
+    ("CMD/IO11", "19", "bidirectional"),
 ]
 
 # ---------------------------------------------------------------- DIR9001 module
@@ -103,8 +104,8 @@ dac_right = [
     ("OUTL", "8", "output"), ("OUTR", "9", "output"), ("AGND", "10", "passive"),
 ]
 
-body = [symbol("ESP32-DevKitC-38", "A", esp_left, esp_right, HALF_W,
-               "ESP32-DevKitC V4, 38-pin, on two 1x19 sockets", "esp32 devkit module"),
+body = [symbol("ESP32-WROOM-32", "U", esp_left, esp_right, HALF_W,
+               "ESP32-WROOM-32 module, soldered to the milled copper", "esp32 wroom module"),
         symbol("DIR9001-Module", "A", dir_left, dir_right, 12.7,
                "DIR9001 S/PDIF receiver breakout with TOSLINK", "spdif toslink dir9001"),
         symbol("GY-PCM5102", "A", dac_left, dac_right, 12.7,

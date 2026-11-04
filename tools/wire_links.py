@@ -2,7 +2,7 @@
 """Report every wire link the routed board needs, and refuse the ones that
 must not be wires.
 
-    python3 tools/kpy.py tools/wire_links.py hardware/surround.routed.kicad_pcb
+    python3 tools/kpy.py tools/wire_links.py hardware/surround.kicad_pcb
 
 A link is a run of F.Cu copper: on this single-sided board that copper is not
 manufactured, it is a wire the assembler solders between two through-hole pads
@@ -16,7 +16,7 @@ import pcbnew
 
 BANNED_PREFIX = ("DIR_BCK", "DIR_LRCK")
 BANNED_EXACT = {"Net-(A2-BCKO)", "Net-(A2-LRCKO)", "Net-(A2-DOUT)",
-                "Net-(A1-IO34)", "Net-(A1-IO33)", "Net-(A1-IO25)",
+                "Net-(U1-IO34)", "Net-(U1-IO19)", "Net-(U1-IO23)",
                 "Net-(A3-DIN)", "Net-(A4-DIN)",
                 "Net-(A3-OUTL)", "Net-(A3-OUTR)", "Net-(A4-OUTL)", "Net-(A4-OUTR)",
                 "Net-(J5-PadT)", "Net-(J5-PadR)", "Net-(J6-PadT)", "Net-(J6-PadR)"}
