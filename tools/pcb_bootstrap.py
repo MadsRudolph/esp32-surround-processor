@@ -56,7 +56,7 @@ for c in sorted(data["components"], key=lambda c: c["ref"]):
 
 # four M3 mounting holes, locked, 4 mm in from the corners
 # H1 sits in from the corner: the output terminals line up with the DAC pads and fill it
-for i, (dx, dy) in enumerate([(15, 3.6), (W - 4, 4), (4, H - 4), (W - 4, H - 4)], 1):
+for i, (dx, dy) in enumerate([(15, 4), (W - 4, 4), (15, H - 4), (W - 4, H - 4)], 1):
     fp = load_fp("MountingHole:MountingHole_3.2mm_M3")
     fp.SetReference(f"H{i}"); fp.SetValue("M3")
     board.Add(fp)

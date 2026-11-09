@@ -61,27 +61,30 @@ def symbol(name, refprefix, left, right, half_w, descr, keywords):
 # Pin numbers are the WROOM-32 castellations. Grouped by what the carrier does
 # with them, not by position; the unused ones are at the bottom of each side.
 # The GPIO choice follows the board: each signal is on the castellation that
-# faces where its copper goes (tools/surround_board.py, FLOORPLAN).
+# faces where its copper goes (tools/surround_board.py, FLOORPLAN): the DIR9001
+# lines on alternate pins of the south row, the two DAC data lines on the two
+# free pins of the west column (the USER button on IO15 beside them), XSMT, BOOT,
+# the status LED and the UART on the north row.
 esp_left = [
     ("3V3", "2", "power_in"), ("EN", "3", "input"),
-    ("IO36/VP", "4", "input"), ("IO39/VN", "5", "input"),
-    ("IO34", "6", "input"), ("IO33", "9", "bidirectional"), ("IO27", "12", "bidirectional"),
+    ("IO33", "9", "bidirectional"), ("IO39/VN", "5", "input"),
+    ("IO35", "7", "input"), ("IO26", "11", "bidirectional"), ("IO14", "13", "bidirectional"),
     ("IO32", "8", "bidirectional"),
     ("GND", "1", "power_in"), ("GND", "15", "passive"), ("GND", "38", "passive"),
-    ("IO25", "10", "bidirectional"), ("IO26", "11", "bidirectional"),
-    ("IO35", "7", "input"), ("IO14", "13", "bidirectional"),
-    ("IO12/MTDI", "14", "bidirectional"), ("IO13", "16", "bidirectional"),
+    ("IO25", "10", "bidirectional"), ("IO36/VP", "4", "input"),
+    ("IO34", "6", "input"), ("IO27", "12", "bidirectional"),
+    ("IO12/MTDI", "14", "bidirectional"), ("IO19", "31", "bidirectional"),
     ("SD2/IO9", "17", "bidirectional"), ("SD3/IO10", "18", "bidirectional"),
 ]
 esp_right = [
-    ("IO18", "30", "bidirectional"), ("IO17", "28", "bidirectional"),
-    ("IO19", "31", "bidirectional"), ("TXD0/IO1", "35", "output"),
-    ("RXD0/IO3", "34", "input"), ("IO16", "27", "bidirectional"),
-    ("IO4", "26", "bidirectional"), ("IO0/BOOT", "25", "bidirectional"),
+    ("IO13", "16", "bidirectional"), ("IO2", "24", "bidirectional"),
+    ("IO21", "33", "bidirectional"), ("TXD0/IO1", "35", "output"),
+    ("RXD0/IO3", "34", "input"), ("IO15/MTDO", "23", "bidirectional"),
+    ("IO17", "28", "bidirectional"), ("IO0/BOOT", "25", "bidirectional"),
     ("IO22", "36", "bidirectional"), ("NC", "32", "no_connect"),
-    ("IO5", "29", "bidirectional"), ("IO23", "37", "bidirectional"),
-    ("IO21", "33", "bidirectional"), ("IO2", "24", "bidirectional"),
-    ("IO15/MTDO", "23", "bidirectional"), ("SD1/IO8", "22", "bidirectional"),
+    ("IO5", "29", "bidirectional"), ("IO16", "27", "bidirectional"),
+    ("IO23", "37", "bidirectional"), ("IO4", "26", "bidirectional"),
+    ("IO18", "30", "bidirectional"), ("SD1/IO8", "22", "bidirectional"),
     ("SD0/IO7", "21", "bidirectional"), ("CLK/IO6", "20", "bidirectional"),
     ("CMD/IO11", "19", "bidirectional"),
 ]

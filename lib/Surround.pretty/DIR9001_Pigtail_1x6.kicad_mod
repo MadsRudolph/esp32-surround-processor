@@ -80,66 +80,6 @@
 		(fill no)
 		(layer "F.SilkS")
 	)
-	(fp_text user "DATA"
-		(at -2.6 0 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
-	(fp_text user "LRCK"
-		(at -2.6 2.54 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
-	(fp_text user "BCLK"
-		(at -2.6 5.08 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
-	(fp_text user "MCLK"
-		(at -2.6 7.62 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
-	(fp_text user "+5V"
-		(at -2.6 10.16 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
-	(fp_text user "GND"
-		(at -2.6 12.7 0)
-		(layer "F.SilkS")
-		(effects
-			(font
-				(size 0.8 0.8)
-				(thickness 0.15)
-			)
-		)
-	)
 	(pad "6" thru_hole circle
 		(at 0 0)
 		(size 1.7 1.7)
@@ -168,14 +108,14 @@
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "1" thru_hole rect
+	(pad "2" thru_hole circle
 		(at 0 10.16)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 	)
-	(pad "2" thru_hole circle
+	(pad "1" thru_hole rect
 		(at 0 12.7)
 		(size 1.7 1.7)
 		(drill 1)

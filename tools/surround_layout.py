@@ -70,13 +70,13 @@ c8 = sh.place("Device:C_Polarized", "C8", at=(G(78), RAIL5 + G(3)), value="10uF/
 for c in (c7, c8):
     sh.seg((c.pin(1).x, RAIL5), c.pin(1)); gnd_pts.append(c.pin(2))
 RLONG = "Surround:R_Axial_DIN0207_L6.3mm_D2.5mm_P12.70mm_Horizontal"
-branches = [("R17", G(84), "+5V_DAC1", "C2", RFP), ("R18", G(94), "+5V_DAC2", "C3", RLONG), ("R19", G(104), "+5V_DIR", "C4", RFP)]
+branches = [("R17", G(84), "+5V_DAC1", "C2", RFP), ("R18", G(94), "+5V_DAC2", "C3", RFP), ("R19", G(104), "+5V_DIR", "C4", RFP)]
 for rref, x, net, cref, rfp in branches:
     r = sh.place("Device:R", rref, at=(x, RAIL5 + G(3)), value="10R", footprint=rfp)
     sh.seg((x, RAIL5), r.pin(1))
     node_y = r.pin(2).y + G(2)
     sh.seg(r.pin(2), (x, node_y))
-    c = sh.place("Device:C_Polarized", cref, at=(x + G(4), node_y + G(3)), value="100uF/10V", footprint="Capacitor_THT:CP_Radial_D8.0mm_P3.50mm")
+    c = sh.place("Device:C_Polarized", cref, at=(x + G(4), node_y + G(3)), value="100uF/10V", footprint="Capacitor_THT:CP_Radial_D8.0mm_P5.00mm")
     sh.seg((x, node_y), (c.pin(1).x, node_y)); sh.seg((c.pin(1).x, node_y), c.pin(1))
     sh.seg((x, node_y), (x - G(3), node_y))
     sh.label((x - G(3), node_y), net, rot=180, kind="global")
@@ -98,7 +98,7 @@ sh.seg(adj, (adj.x, adj_y)); sh.seg((adj.x, adj_y), (G(130), adj_y))
 r13 = sh.place("Device:R", "R13", at=(adj.x, adj_y + G(3)), value="392R", footprint=RFP)
 sh.seg((adj.x, adj_y), r13.pin(1))
 gnd_pts.append(r13.pin(2))
-d3 = sh.place("Device:D", "D3", at=(G(144), RAIL_Y + G(1)), rot=0, value="1N4003", footprint="Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal")
+d3 = sh.place("Device:D", "D3", at=(G(144), RAIL_Y + G(1)), rot=0, value="1N4003", footprint="Diode_THT:D_DO-41_SOD81_P7.62mm_Horizontal")
 sh.seg(d3.pin("A"), (G(150), d3.pin("A").y)); sh.seg((G(150), d3.pin("A").y), (G(150), vo.y)); sh.seg((G(150), vo.y), (G(140), vo.y))
 sh.seg(d3.pin("K"), (G(136), d3.pin("K").y)); sh.seg((G(136), d3.pin("K").y), (G(136), RAIL_Y))
 GND1_Y = G(52)
@@ -121,9 +121,9 @@ dirm = sh.place("Surround:DIR9001-Module", "A2", at=(DX, DY), value="DIR9001-I2S
 # bus fans out to 5.08 mm through the resistor column and the values stay clear.
 RXS = {"R1": G(66), "R2": G(72), "R3": G(78)}    # staggered so ref/value texts never meet
 bus = [  # (dir pin, esp pin, ref/None, label, mid-row y, jog-out x, jog-back x)
-    ("DOUT",  "IO34",    "R3", None,       G(100), G(58), G(114)),
-    ("LRCKO", "IO33",    "R2", "DIR_LRCK", G(104), G(56), G(116)),
-    ("BCKO",  "IO27",    "R1", "DIR_BCK",  G(108), G(54), G(118)),
+    ("DOUT",  "IO35",    "R3", None,       G(100), G(58), G(114)),
+    ("LRCKO", "IO26",    "R2", "DIR_LRCK", G(104), G(56), G(116)),
+    ("BCKO",  "IO14",    "R1", "DIR_BCK",  G(108), G(54), G(118)),
 ]
 for src, dst, ref, lab, my, xo, xb in bus:
     a, b = dirm.pin(src), esp.pin(dst)
@@ -143,7 +143,7 @@ for src, dst, ref, lab, my, xo, xb in bus:
     if lab:
         sh.label((G(90), my), lab, kind="global")
 sh.nc(dirm.pin("SCKO"))
-sh.note((G(30), G(85)), "Series source termination for the 76 R coplanar trace (tools/impedance.py):", size=1.27)
+sh.note((G(30), G(85)), "Series source termination for the 71 R trace over the ground plane (tools/impedance.py):", size=1.27)
 sh.note((G(30), G(87)), "43R2 at every driver output (25-40 R CMOS source). Tune on a scope at the far pad.", size=1.27)
 
 # DIR9001 module power
@@ -160,7 +160,7 @@ p3 = esp.pin("3V3")
 sh.seg(p3, (G(100), p3.y))
 sh.label((G(100), p3.y), "+3V3", rot=180, kind="global")
 c1 = sh.place("Device:C_Polarized", "C1", at=(G(104), G(82)), value="470uF/10V", footprint="Capacitor_THT:CP_Radial_D10.0mm_P5.00mm")
-c9 = sh.place("Device:C", "C9", at=(G(110), G(82)), value="100n", footprint="Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm")
+c9 = sh.place("Device:C", "C9", at=(G(110), G(82)), value="100n", footprint="Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm")
 for c in (c1, c9):
     sh.seg(c.pin(1), (c.pin(1).x, c.pin(1).y - G(2)))
     sh.label((c.pin(1).x, c.pin(1).y - G(2)), "+3V3", rot=90, kind="global")
@@ -169,12 +169,12 @@ g1, g15, g38 = esp.pin("1"), esp.pin("15"), esp.pin("38")
 for g in (g1, g15, g38):
     sh.seg(g, (G(121), g.y))
 sh.seg((G(121), g1.y), (G(121), g38.y)); sh.gnd((G(121), g38.y))
-ad = esp.pin("IO36/VP")
+ad = esp.pin("IO33")
 sh.seg(ad, (G(121), ad.y)); sh.label((G(121), ad.y), "POT", rot=180, kind="global")
 en = esp.pin("EN")
 sh.seg(en, (G(118), en.y)); sh.label((G(118), en.y), "EN", rot=180, kind="global")
-for nm in ("IO25", "IO26", "IO35", "IO32", "IO14", "IO12/MTDI", "IO13", "SD2/IO9", "SD3/IO10",
-           "IO22", "NC", "IO5", "IO23", "IO21", "IO2", "IO15/MTDO", "SD1/IO8", "SD0/IO7",
+for nm in ("IO25", "IO36/VP", "IO34", "IO32", "IO27", "IO12/MTDI", "IO19", "SD2/IO9", "SD3/IO10",
+           "IO22", "NC", "IO5", "IO16", "IO23", "IO4", "IO18", "SD1/IO8", "SD0/IO7",
            "CLK/IO6", "CMD/IO11", "IO39/VN"):
     sh.nc(esp.pin(nm))
 sh.note((G(122), G(134)), "IO12 must float (flash 1.8 V strap). IO2/IO15 strapping, IO6-11 flash: NC. Centre pad 39 unsoldered.", size=1.27)
@@ -186,7 +186,7 @@ dac1 = sh.place("Surround:GY-PCM5102", "A3", at=(D1X, D1Y), value="PCM5102 FRONT
 D2X, D2Y = G(230), G(117)
 dac2 = sh.place("Surround:GY-PCM5102", "A4", at=(D2X, D2Y), value="PCM5102 SURROUND", footprint="Surround:PCM5102_Module_FaceDown")
 
-din1, din2, xsmt_pin = esp.pin("IO17"), esp.pin("IO18"), esp.pin("IO19")
+din1, din2, xsmt_pin = esp.pin("IO2"), esp.pin("IO13"), esp.pin("IO21")
 r4 = sh.place("Device:R", "R4", at=(G(200), dac1.pin("DIN").y), rot=90, value="43R2", footprint=RFP)
 sh.seg(r4.pin(2), dac1.pin("DIN"))
 sh.seg(din1, (G(190), din1.y)); sh.seg((G(190), din1.y), (G(190), r4.pin(1).y))
@@ -252,8 +252,8 @@ def stub(pin, x, net):
     """A short wire from a right-hand ESP32 pin to a global label."""
     sh.seg(pin, (x, pin.y)); sh.label((x, pin.y), net, kind="global")
 stub(esp.pin("IO0/BOOT"), G(164), "BOOT")
-stub(esp.pin("IO16"), G(164), "USER")
-stub(esp.pin("IO4"), G(164), "LED")
+stub(esp.pin("IO15/MTDO"), G(164), "USER")
+stub(esp.pin("IO17"), G(164), "LED")
 stub(esp.pin("TXD0/IO1"), G(164), "TXD0")
 stub(esp.pin("RXD0/IO3"), G(164), "RXD0")
 
@@ -280,8 +280,7 @@ sh.seg(c11.pin(1), (G(24), c11.pin(1).y - G(2))); sh.label((G(24), c11.pin(1).y 
 sh.gnd(c11.pin(2))
 # BOOT
 boot_node = button("SW2", G(60), "BOOT", "BOOT")
-pullup("R15", boot_node[0], boot_node, "BOOT",
-       fp="Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal")
+pullup("R15", boot_node[0], boot_node, "BOOT")
 # user button: internal pull-up in firmware
 user_node = button("SW3", G(84), "USER", "USER")
 sh.label(user_node, "USER", rot=180, kind="global")

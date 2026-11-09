@@ -1,11 +1,11 @@
 (version 1)
 
-# Custom DRC rules for the ball-milled surround carrier board.
+# Custom DRC rules for the double-sided, ball-milled surround carrier board.
 #
-# Copper is isolation-milled with an 0.8 mm ball mill at 0.08 mm deep, which cuts
-# a 0.44 mm channel at the copper top (0.41-0.47 measured). The netclasses ask for
-# 0.50 mm (the `cnc-fine` profile). Full pads survive down to 0.44 mm. The ground
-# pour always keeps the full 0.50 mm.
+# Both faces are isolation-milled with an 0.8 mm ball mill at 0.08 mm deep, which
+# cuts a 0.44 mm channel at the copper top (0.41-0.47 measured). The netclasses ask
+# for 0.50 mm (the `cnc-fine` profile). Full pads survive down to 0.44 mm. The
+# ground pours always keep the full 0.50 mm.
 #
 # One footprint needs a copper exception: the WROOM-32 castellations sit 0.37 mm
 # apart, fixed by the module. The channel is wider than that, so one middle cut
@@ -16,9 +16,10 @@
 	(condition "A.memberOfFootprint('U1') && B.memberOfFootprint('U1')")
 	(constraint clearance (min 0.3mm)))
 
-# Tracks leaving the castellations start at the pads' own pitch, so they keep the
-# pads' 0.37 mm gap until they fan out. Same single middle cut as the pads. The
-# U1_escape rule areas end where tools/octoroute.py stops relaxing the rule.
+# Tracks leaving the castellations start at the pads' own pitch, so where two
+# neighbouring pins are both used they keep the pads' 0.37 mm gap until they fan
+# out. Same single middle cut as the pads. The U1_escape rule areas end where
+# tools/octoroute.py stops relaxing the rule.
 (rule "U1_escape_clearance"
 	(condition "A.Type != 'Zone' && B.Type != 'Zone' && A.intersectsArea('U1_escape') && B.intersectsArea('U1_escape')")
 	(constraint clearance (min 0.3mm)))
@@ -31,20 +32,14 @@
 
 # Screw terminals stack along the west edge: neighbouring blocks butt together.
 (rule "stacked_terminals"
-	(condition "(A.Reference == 'J3' && B.Reference == 'J4') || (A.Reference == 'J5' && B.Reference == 'J6') || (A.Reference == 'J3' && B.Reference == 'J6') || (A.Reference == 'J6' && B.Reference == 'J3')")
+	(condition "(A.Reference == 'J3' && B.Reference == 'J4') || (A.Reference == 'J5' && B.Reference == 'J6')")
 	(constraint courtyard_clearance (min 0mm))
 	(severity ignore))
 
-# R18 carries +5V_DAC2 into the pocket between the DAC sockets, beside the socket
-# column, R4 and C3's can. Courtyards meet; the leads clear by 0.5 mm or more.
-(rule "R18_in_the_pocket"
-	(condition "(A.Reference == 'R18' || B.Reference == 'R18') && (A.Reference == 'A3' || B.Reference == 'A3' || A.Reference == 'R4' || B.Reference == 'R4' || A.Reference == 'C3' || B.Reference == 'C3')")
-	(constraint courtyard_clearance (min 0mm))
-	(severity ignore))
-
-# The status LED and its resistor stand between the USER and BOOT buttons.
-# Courtyards meet; the bodies clear by about 1 mm.
-(rule "led_between_buttons"
-	(condition "(A.Reference == 'D1' || A.Reference == 'R10' || B.Reference == 'D1' || B.Reference == 'R10') && (A.Reference == 'SW2' || A.Reference == 'SW3' || B.Reference == 'SW2' || B.Reference == 'SW3')")
+# R13 ends at the bulk cap, the pot header sits under its series resistor, C7
+# stands beside C3's can, TP1 beside C11's and R14 beside the reset button. Courtyards meet; the bodies clear
+# by 0.4 mm or more.
+(rule "tight_neighbours"
+	(condition "(A.Reference == 'C1' && B.Reference == 'R13') || (A.Reference == 'R13' && B.Reference == 'C1') || (A.Reference == 'J7' && B.Reference == 'R20') || (A.Reference == 'R20' && B.Reference == 'J7') || (A.Reference == 'C3' && B.Reference == 'C7') || (A.Reference == 'C7' && B.Reference == 'C3') || (A.Reference == 'C11' && B.Reference == 'TP1') || (A.Reference == 'TP1' && B.Reference == 'C11') || (A.Reference == 'R14' && B.Reference == 'SW1') || (A.Reference == 'SW1' && B.Reference == 'R14')")
 	(constraint courtyard_clearance (min 0mm))
 	(severity ignore))

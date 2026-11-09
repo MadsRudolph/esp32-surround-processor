@@ -1,33 +1,39 @@
 #!/usr/bin/env python3
-"""Place and route the ball-milled board: floorplan as code, copper by tools/octoroute.py.
+"""Place and route the double-sided ball-milled board: floorplan as code.
 
     python3 tools/kpy.py tools/surround_board.py [--place-only]
 
 Reads the bootstrapped hardware/surround.kicad_pcb (tools/pcb_bootstrap.py) and
-writes it back placed, routed and with the ground pour filled. Every coordinate
-is board-relative mm, outline origin top-left.
+writes it back placed, routed and poured on both faces. Every coordinate is
+board-relative mm, outline origin top-left, and through-hole pads sit on a
+1.27 mm grid wherever the part allows it.
 
-FLOORPLAN. The WROOM-32 sits on the milled side at the EAST edge with its antenna
-pointing east, so the antenna keep-out starts exactly at the board edge and
-nothing lies under it. Its castellation rows then face north and south into open
-board, and its flash column (all NC) faces west:
+THE TWO FACES. The holes are not plated and there are no vias. The bottom
+(B.Cu) carries every clock, data and audio track and the WROOM-32. The top
+(F.Cu) is a ground plane that the mill only opens with a ring around each
+non-ground hole, plus the supply runs listed in TOP_ROUTES. The faces meet only
+where a lead is soldered on both: TOP_OK() says which leads the iron can reach
+from the top, and tools/check_board.py proves the board is connected using only
+those.
 
-  * north row, west to east: BOOT, LED, USER, DIN1, DIN2, XSMT ... RXD0, TXD0.
-    The UI parts sit west of the module; the three DAC lines wrap over them to
-    the DAC block, and the UART header sits north of the module's east end.
-  * south row, east to west: GND, 3V3, EN, then the pot and the DIR9001 lines,
-    which fan south into the DIR pigtail pads, the regulators and the 3V3/EN
-    parts in the south-east.
+FLOORPLAN, west to east:
 
-The DAC block is the proven column: both modules face down in one line, BCK runs
-up the east face of the column and LRCK up the west face. R4/R5 carry DIN across
-the BCK run, R18 carries +5V_DAC2 across both clocks, and the output terminals
-line the west edge.
-
-THE ROUTING RULES are enforced by the router itself: every segment is horizontal,
-vertical or 45 degrees, no run turns by more than 45 degrees, every net with a
-pad on the ESP32 is 0.9 mm wide, power is 1.0 mm, everything else 0.5 mm, and
-clearance is 0.50 mm (0.30 mm only between castellations and their escapes).
+  * output terminals on the west edge, wire entry outward, first pin of each
+    DAC level with that DAC's output row;
+  * the two PCM5102 modules face down in one column of sockets at XC. The front
+    DAC block and the surround DAC block are the same drawing, 25.4 mm apart:
+    DIN resistor, supply cap and 10 R feed all straddle the BCK trunk, which
+    runs dead straight up the east face of the column. LRCK runs up the west
+    face and XSMT further west, under the modules;
+  * the WROOM-32 on the milled side at the east edge, antenna off the board,
+    centred between the two DIN levels so both data lines leave its west face
+    as mirror images;
+  * under the module, a row of resistors on its alternate south pins takes the
+    DIR9001 lines; the pigtail holes sit below them. EN and +3V3 run down the
+    east edge to the reset parts and the bulk cap;
+  * boot and user buttons, LEDs and the UART header along the north edge;
+    regulators along the south edge with their tabs outward and the +9V rail
+    beneath them.
 """
 import sys
 from pathlib import Path
@@ -39,13 +45,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 ROOT = Path(__file__).resolve().parents[1]
 BOARD = ROOT / "hardware/surround.kicad_pcb"
 X0 = Y0 = 20.0                  # outline origin, set by pcb_bootstrap.py
-W, H = 103.0, 69.0               # must match the size given to pcb_bootstrap.py
+W, H = 101.88, 71.12             # must match the size given to pcb_bootstrap.py
 
 # ---------------------------------------------------------------- anchors
-UXc, UYc = W - 9.8, 19.5        # WROOM centre (keep-out edge = board edge)
-XC = 48.0                       # DAC socket column; bodies and outputs to the west
-YN, YS = 14.0, 37.0             # A4 (surround) and A3 (front) centres
-JX = 6.0                        # output terminal column
+UXc, UYc = W - 9.8, 24.77       # WROOM centre: keep-out edge = board edge
+XC = 48.26                      # DAC socket column; bodies and outputs to the west
+CF, CS = 12.70, 38.10           # front (A3) and surround (A4) module centres
+XT = XC + 7.62                  # BCK trunk, between the pads of the parts east of the column
+JX = 5.08                       # output terminal column
+YR = 39.37                      # tops of the resistor row under the module
+YA2 = 49.53                     # DIR9001 pigtail holes
+YS = 67.31                      # south row: regulators and diodes
+YQ = 58.42                      # second row above it: output caps and the DIR feed
+YB = 60.96                      # the +3V3 bus between them
+YEN = 53.34                     # EN lane, under the reset button
+XP = 66.04                      # pot column
+XV5 = 61.595                    # +5V on the top face
 
 
 def upin(n):
@@ -58,123 +73,226 @@ def upin(n):
 
 
 def ydac(cy, n):
-    """y of pad n on a DAC socket column, rotated so pad 1 is at the south end."""
+    """y of pad n on a DAC socket column, pad 1 (VIN) at the south end."""
     return cy + 6.35 - (n - 1) * 2.54
 
+
+def yrow(cy):
+    """y of a DAC module's 1x9 row, on the north edge of the module."""
+    return cy - 6.74
+
+
+XSM = XC - 13 + 1.43            # x of pad 7 (XSMT) in the 1x9 row
+XLO, XRO = XC - 13 - 13.81, XC - 13 - 8.73      # LOUT and ROUT
 
 # U1 pad -> net, as the schematic assigns them. The floorplan depends on every
 # one of these; check_pinmap() stops the build if the schematic drifts.
 PINMAP = {
     "1": "GND", "15": "GND", "38": "GND",
     "2": "+3V3", "3": "EN",
-    # north row, west to east: UI first, then the three DAC lines that wrap west
-    "25": "BOOT", "26": "LED", "27": "USER",
-    "28": "Net-(U1-IO17)",       # DIN1 -> R4 -> A3
-    "30": "Net-(U1-IO18)",       # DIN2 -> R5 -> A4
-    "31": "XSMT",
-    "34": "RXD0", "35": "TXD0",
-    # south row: pot, then the DIR9001 lines, spread 3.81 mm for the resistors
-    "4": "POT",
-    "6": "Net-(U1-IO34)",        # DOUT
-    "9": "DIR_LRCK",
-    "12": "DIR_BCK",
+    # south row, alternate pins: the DIR9001 lines and the pot
+    "13": "DIR_BCK", "11": "DIR_LRCK", "9": "POT", "7": "Net-(U1-IO35)",
+    # west column: the two free pins, one per DAC
+    "24": "Net-(U1-IO2)",        # DIN front  -> R4 -> A3
+    "16": "Net-(U1-IO13)",       # DIN surround -> R5 -> A4
+    "23": "USER",                # IO15, in the pocket beside the data lines
+    # north row
+    "25": "BOOT", "28": "LED", "33": "XSMT", "34": "RXD0", "35": "TXD0",
 }
 
 # ref -> (pad number, x, y, rot): put that pad at that point, then rotate about it.
 # rot 90 turns a part's +x axis to point north (KiCad turns counter-clockwise).
-PLACE = {
-    # ---- DAC block: column at XC, bodies west, rows on their north edges
-    "A4": ("1", XC, ydac(YN, 1), 180),
-    "A3": ("1", XC, ydac(YS, 1), 180),
-    "R5": ("2", XC + 5.0, ydac(YN, 4), 180),       # DIN2 across the BCK run
-    "R4": ("2", XC + 5.0, ydac(YS, 4), 180),       # DIN1 across the BCK run
-    "C3": ("1", XC + 3.0, 24.8, 0),                 # +5V_DAC2, between the modules
-    "R18": ("1", XC + 2.6, YS + 5.35, 90),          # +5V_DAC2 across both clocks
-    "R11": ("1", XC - 11.52, 26.0, 180),            # XSMT pull-down
-    "R17": ("1", XC + 5.5, YS + 15.12, 90),         # +5V_DAC1, up to A3 VIN
-    "C2": ("1", XC - 3.5, YS + 13.0, 0),
-    # ---- outputs, west edge
-    "J5": ("T", JX, YN, 90),
-    "J6": ("T", JX, YN + 5.08, 270),
-    "J3": ("T", JX, YS + 1.8, 90),
-    "J4": ("T", JX, YS + 6.88, 270),
-    "R6": ("1", 19.0, YN, 180),
-    "R7": ("1", 11.2, YN - 5.08, 0),
-    "R8": ("1", 19.0, YN + 5.08, 180),
-    "R9": ("1", 11.2, YN + 10.16, 0),
-    # ---- UI, between the DAC block and the module: buttons over LEDs
-    "SW3": ("1", 69.1, 14.0, 270),                  # USER
-    "SW2": ("1", 80.6, 14.0, 270),                  # BOOT
-    "R10": ("1", 72.6, 13.0, 270),                  # status LED
-    "D4": ("2", 66.0, 33.0, 180),                   # power
-    "D1": ("2", 72.6, 24.0, 90),                    # status
-    "R16": ("1", 66.0, 44.0, 90),                   # 3V3 up to D4, across the clocks
-    "R15": ("1", 78.5, 44.0, 90),                   # BOOT pull-up, across the clocks
-    # ---- UART, north of the module's east end
-    "J2": ("1", W - 2.0, 7.08, 180),
-    # ---- DIR9001 pigtail and its series resistors, below the module
-    "R1": ("1", upin(12)[0], 39.0, 90),
-    "R2": ("1", upin(9)[0], 41.0, 90),
-    "R3": ("1", upin(6)[0], 39.0, 90),
-    "A2": ("6", upin(6)[0], 45.5, 270),
-    "R19": ("1", upin(6)[0] - 10.16, 55.62, 90),                 # +5V_DIR, under the pigtail's +5V
-    "C4": ("1", 89.2, 51.5, 0),
-    # ---- ESP32 3V3 bypass at pin 2; reset and pot west of the pigtail
-    "C9": ("1", W - 1.7, 31.5, 270),
-    "SW1": ("1", 71.0, 47.0, 0),                    # RESET
-    "C11": ("1", 59.5, 51.0, 0),
-    "R14": ("1", 66.5, 48.5, 270),
-    "R20": ("1", 56.5, 59.0, 0),                    # pot wiper
-    "J7": ("1", 81.5, 52.0, 0),
+PLACE = {}
+
+
+def dac_block(cy, dac, r_din, cap, r_feed):
+    PLACE[dac] = ("1", XC, ydac(cy, 1), 180)
+    PLACE[r_din] = ("2", XC + 3.81, ydac(cy, 4), 180)        # DIN, across the trunk
+    PLACE[cap] = ("1", XT - 2.5, ydac(cy, 1), 0)             # VIN bulk, across the trunk
+    PLACE[r_feed] = ("2", XC + 3.81, ydac(cy, 1) + 6.35, 180)  # 10 R feed, across the trunk
+
+
+dac_block(CF, "A3", "R4", "C2", "R17")
+dac_block(CS, "A4", "R5", "C3", "R18")
+
+PLACE.update({
+    # XSMT pull-down, between the modules: it lies across LRCK so that its ground
+    # lead ties the copper between the sockets to the plane
+    "R11": ("1", XC - 6.35, 28.575, 0),
+    # ---- outputs, west edge: wire entry west, tip level with the DAC row
+    "J3": ("T", JX, yrow(CF), 270),
+    "J4": ("T", JX, yrow(CF) + 10.16, 270),
+    "J5": ("T", JX, yrow(CS), 270),
+    "J6": ("T", JX, yrow(CS) + 15.24, 270),
+    "R6": ("2", 11.43, yrow(CS), 180),
+    "R7": ("1", 11.43, yrow(CS) + 5.08, 0),
+    "R8": ("2", 11.43, yrow(CS) + 15.24, 180),
+    "R9": ("1", 11.43, yrow(CS) + 20.32, 0),
+    # ---- DIR9001: resistor row under the module, pigtail below
+    "R1": ("1", upin(13)[0] - 2.54, YR + 7.62, 90),
+    "R2": ("1", upin(11)[0], YR + 7.62, 90),
+    "R3": ("1", upin(7)[0], YR + 7.62, 90),
+    "A2": ("6", upin(9)[0], YA2, 270),
+    "C4": ("1", 76.20, 57.15, 0),
+    # ---- pot: lane from pin 9, series resistor, header, in one column
+    "R20": ("1", XP, 44.45, 270),
+    "J7": ("1", XP + 2.54, 54.61, 270),
+    "R19": ("1", XP - 2.54, YQ, 0),                 # +5V -> +5V_DIR, over the pot's 3V3
+    # ---- ESP32 supply and reset, down the east edge
+    "C9": ("1", upin(1)[0], 41.275, 90),        # its GND lead straight under pin 1
+    "SW1": ("1", upin(3)[0], 50.80, 270),           # RESET
+    "C11": ("1", 86.36, YEN, 270),
+    "R14": ("1", 90.805, YB, 90),
+    "C1": ("1", 98.83, 65.40, 180),
     # ---- supply: in at the south-west, regulators on the south edge, tabs out
-    "J1": ("1", 4.0, 64.0, 0),
-    "D2": ("1", 14.5, 64.0, 0),
-    "C5": ("1", 29.0, 64.0, 0),
-    "C6": ("1", 35.0, 64.0, 0),
-    "U2": ("1", 45.0, 65.5, 0),
-    "C7": ("1", 54.0, 64.0, 0),
-    "C8": ("1", 62.0, 64.0, 0),
-    "C1": ("1", 87.0, 62.5, 0),
-    "U3": ("1", 74.0, 65.6, 0),
-    "R12": ("2", 74.0, 60.55, 180),
-    "R13": ("1", 69.5, 67.0, 90),
-    "D3": ("2", W - 1.7, 47.0, 270),
-    # ---- scope ground
-    "TP1": ("1", 30.0, 3.0, 0),
-    "TP2": ("1", 30.0, 57.5, 0),
-}
-HOLES = {"H1": (14.0, 3.6), "H2": (W - 4.0, H - 4.0), "H3": (4.5, 55.5), "H4": (40.0, 57.5)}
+    "J1": ("1", 5.08, 66.04, 0),
+    "D2": ("2", 15.24, YS, 180),
+    "C5": ("1", 29.21, YS, 0),
+    "C6": ("1", 35.56, YS, 0),
+    "U2": ("3", 44.45, YS, 180),
+    "C8": ("1", 46.99, YQ, 0),
+    # 100 n on +5V where it lands from the top face; its ground lead ties the copper
+    # that LRCK and BCK fence in to the plane
+    "C7": ("1", XV5, 46.99, 90),
+    "D3": ("1", 60.96, YS, 0),
+    "U3": ("3", 73.66, YS, 180),
+    "R12": ("1", 73.66, 63.50, 0),
+    "R13": ("1", 82.55, YS, 0),
+    # ---- BOOT, status and power LEDs, UART: along the north edge
+    "SW2": ("1", upin(25)[0], 12.20, 180),          # BOOT
+    "R15": ("1", 66.04, 8.255, 0),
+    "R10": ("1", upin(28)[0], 12.70, 90),
+    "D1": ("1", 67.31, 4.445, 0),                   # status
+    # ---- USER and the power LED, in the pocket between the two data lines
+    "R16": ("1", 66.04, 17.78, 270),
+    "D4": ("2", 66.04, 27.94, 90),
+    "J2": ("1", upin(35)[0] + 1.27, 8.89, 270),
+    "SW3": ("1", 76.20, 20.32, 270),
+    # ---- scope ground loops
+    "TP1": ("1", 84.455, 58.90, 0),                 # ties the reset parts' ground to the plane
+    "TP2": ("1", 100.33, 12.70, 0),                # ties module pin 38 to the plane
+})
+HOLES = {"H1": (13.97, 11.04), "H2": (W - 3.6, 3.6), "H3": (17.0, 60.0), "H4": (56.0, 65.4)}
 
 
-# Lanes for the nets whose order matters, as guide points the router must pass
-# through; everything else is routed freely afterwards. North bundle at 1.524 mm
-# pitch on the grid rows above the module: BOOT lowest, XSMT on top.
-def _row(k):
-    return UYc - 8.75 - k * 0.254
+# ---------------------------------------------------------------- routing
+XL = XC - 3.81                  # LRCK, up the west face of the socket column, a ground strip between
+XK = 63.5                       # LRCK's way south, east of the feed resistors
+YLK, YPT = YR + 2.54, YR + 5.08  # LRCK and pot lanes under the resistor row
+YSL = 52.832                    # LRCK's lane round the south end of the column
+YTOP = 1.905                    # XSMT's lane along the north edge
+YRAIL = 69.85                   # +9V rail along the south edge
 
 
+# Bottom-face lanes, as guide points the router must pass through; everything
+# else is routed freely afterwards.
 GUIDES = {
-    "XSMT": [["U1.31", (upin(31)[0], _row(36)), (XC - 11.52, _row(36)), "A4.7"], ["A4.7", "A3.7"],
-             [(XC - 11.52, 26.0), "R11.1"]],
-    "Net-(U1-IO18)": [["U1.30", (upin(30)[0], _row(30)), (XC + 12.62, _row(30)), "R5.1"]],
-    "Net-(U1-IO17)": [["U1.28", (upin(28)[0], _row(24)), (XC + 14.5, _row(24)), (XC + 14.5, YS - 3.5), "R4.1"]],
-    "USER": [["U1.27", (upin(27)[0], _row(18)), (69.1, _row(18)), "SW3.1"]],
-    "LED": [["U1.26", (upin(26)[0], _row(12)), (72.6, _row(12)), "R10.1"]],
-    "BOOT": [["U1.25", (upin(25)[0], _row(6)), (80.6, _row(6)), "SW2.1"], [(80.6, 20.5), "R15.2"]],
-    "TXD0": [["U1.35", (upin(35)[0], 7.08), "J2.1"]],
-    "RXD0": [["U1.34", (upin(34)[0], 4.54), "J2.2"]],
-    "Net-(U1-IO34)": [["U1.6", "R3.2"]],
-    # BCK: down to R1, then west through the gaps in R15 and R16 to the east face
-    # of the DAC column, up to the surround DAC and across to the front one.
-    "DIR_BCK": [["U1.12", "R1.2"],
-                [(upin(12)[0], 30.2), (78.5, 39.3), (XC + 10.5, 39.3), (XC + 10.5, ydac(YN, 5)), "A4.5"],
-                [(XC + 10.5, ydac(YS, 5)), "A3.5"]],
-    # LRCK: through the gap in R1, under BCK, round the south end of the column to
-    # A3.3, and up the west face to A4.3.
-    "DIR_LRCK": [["U1.9", "R2.2"],
-                 [(upin(9)[0], 32.0), (upin(12)[0], 33.4), (78.5, 41.0), (XC + 3.0, 40.6), "A3.3"],
-                 ["A3.3", (XC - 2.5, ydac(YS, 3)), (XC - 2.5, ydac(YN, 3)), "A4.3"]],
+    # BCK: pin to its resistor, then one straight line west and up the trunk.
+    "DIR_BCK": [["U1.13", (upin(13)[0], 36.83), "R1.2"],
+                ["R1.2", (XT, YR), (XT, ydac(CS, 5)), (XT, ydac(CF, 5)), "A3.5"],
+                [(XT, ydac(CS, 5)), "A4.5"]],
+    # LRCK: under R1, down past the feed resistors, round the south end of the
+    # column and up its west face to both modules.
+    "DIR_LRCK": [["U1.11", "R2.2"],
+                 ["R2.2", (upin(13)[0], YLK), (XK, YLK), (XK, YSL), (XL, YSL),
+                  (XL, ydac(CS, 3)), (XL, ydac(CF, 3)), "A3.3"],
+                 [(XL, ydac(CS, 3)), "A4.3"]],
+    "POT": [["U1.9", (upin(9)[0], YLK), (upin(11)[0], YPT), (XP + 2.0, YPT), "R20.1"]],
+    "Net-(U1-IO35)": [["U1.7", "R3.2"]],
+    # the two data lines: mirror images about the module's centre line
+    "Net-(U1-IO2)": [["U1.24", (80.5, upin(24)[1]), (72.9, ydac(CF, 4)), "R4.1"]],
+    "Net-(U1-IO13)": [["U1.16", (80.5, upin(16)[1]), (72.9, ydac(CS, 4)), "R5.1"]],
+    # XSMT: up the east edge, along the north edge, then down under both modules
+    "XSMT": [["U1.33", (89.662, 10.9), (89.662, 5.0), (86.0, YTOP), (XSM, YTOP), "A3.7"],
+             ["A3.7", (XSM, 28.575), "A4.7"], [(XSM, 28.575), "R11.1"]],
+    "Net-(A3-OUTR)": [["A3.9", (XRO, yrow(CF) + 10.16), "J4.T"]],
+    "Net-(A4-OUTR)": [["A4.9", (XRO, yrow(CS) + 15.24), "R8.1"]],
+    # EN: straight down to the reset button, then west under it to its RC parts
+    "EN": [["U1.3", (97.282, 35.3), (97.282, 48.0), (upin(3)[0], 50.8)], [(upin(3)[0], 50.8), (upin(3)[0], 57.3)],
+           [(upin(3)[0], YEN), "R14.2", "C11.1"]],
+    # +3V3: bypass cap at the pin, down the east edge, then one bus west to the
+    # regulator, the protection diode and the pot header
+    "+3V3": [["U1.2", (98.552, 35.3), (98.552, 39.6), "C9.1"],
+             ["C9.1", (upin(1)[0], YB), (XP + 2.54, YB), "J7.1"],
+             [(XP + 2.54, YB), "D3.2"],
+             [(upin(1)[0], YB), "C1.1"],
+             [(76.2, YB), "U3.2"], [(73.66, YB), "R12.1"]],
+    # +9V: one rail along the south edge, under every part it feeds
+    "+9V": [["D2.1", (25.4, YRAIL), (73.66, YRAIL), "U3.3"],
+            [(29.21, YRAIL), "C5.1"], [(35.56, YRAIL), "C6.1"], [(49.53, YRAIL), "U2.1"],
+            [(60.96, YRAIL), "D3.1"]],
+    # +5V: out of the 7805, under its two caps, to the DIR9001 feed resistor
+    "+5V_DIR": [["R19.2", "C4.1"], ["C4.1", "A2.1"]],
+    "Net-(D2-A)": [["J1.1", (7.62, 63.246), (12.7, 63.246), "D2.2"]],
+    "USER": [["U1.23", (76.2, 20.32)], [(76.2, 20.32), (76.2, 26.82)]],
+    "+5V": [["U2.3", (44.45, YB), (61.5, YB), "R19.1"],
+            [(46.99, YB), "C8.1"]],
 }
+FINISH = {"+3V3"}         # guided nets that still have pads for the router to add
+ORDER = []                      # nets to route first, in this order
+WIDTHS = {"EN": 0.5}             # slow, and it shares the east edge with +3V3 and the pin 1 ground
+# Pads the bottom face does not reach: the top-face runs below serve them.
+TOP_ONLY = {"+5V": ("R17.1", "R18.1", "C7.1"), "+3V3": ("R15.1", "R16.1")}
+# Top-face runs. Each end is a lead soldered on both faces.
+TOP_ROUTES = {
+    "+5V": [["R19.1", (XV5, 55.6), "C7.1"],
+            [(XV5, ydac(CS, 1) + 6.35), "R18.1"],
+            ["C7.1", (62.992, 45.466), (62.992, 41.148), (XV5, 39.6), (XV5, ydac(CF, 1) + 6.35), "R17.1"]],
+    "+3V3": [["C9.1", (98.298, 39.6), (98.298, 17.78), (70.0, 17.78), "R16.1"], ["R16.1", "R15.1"]],
+}
+TOP_WIDTHS = {"+3V3": 0.9}
+
+
+def TOP_OK(ref):
+    """True if a lead of this part can be soldered on the component side: the iron
+    reaches an axial lead, a disc cap, a diode, an LED or a TO-220 leg. Sockets,
+    headers, screw terminals, buttons and electrolytic cans sit on their holes."""
+    if ref[0] in "RD" or ref.startswith("TP") or ref in ("U2", "U3"):
+        return True
+    return ref in ("C6", "C7", "C9")
+
+
+# ---------------------------------------------------------------- silkscreen
+# Etched by the fiber laser on the top face. (text, x, y, angle, size), fixed:
+LABELS = [
+    ("ESP32 SURROUND CARRIER  rev D", 34.5, 55.2, 0, 1.2),
+    ("U2 7805", 46.99, 69.8, 0, 0.8),
+    ("U3 LM317", 76.2, 69.8, 0, 0.8),
+    ("WROOM-32 ON BACK", UXc - 1.0, UYc - 1.0, 0, 1.0),
+    ("ANTENNA >", UXc + 4.0, UYc + 1.5, 0, 0.9),
+    ("FRONT DAC", XC - 15.0, CF - 1.0, 0, 1.2),
+    ("FACE DOWN", XC - 15.0, CF + 1.0, 0, 1.0),
+    ("SURROUND DAC", XC - 15.0, CS - 1.0, 0, 1.2),
+    ("FACE DOWN", XC - 15.0, CS + 1.0, 0, 1.0),
+]
+# (text, "REF.PAD" anchor, size, fixed): placed in the nearest free spot to that
+# pad, or at a fixed (dx, dy, angle) from it. The terminals' free channel is east
+# of the pins, inside the body; each pin is named there, reading upwards.
+_E = (2.75, 0.0, 90)
+PAD_LABELS = [
+    ("+9V", "J1.1", 1.0, (0.0, -5.2, 0)), ("GND", "J1.2", 1.0, (0.0, -5.2, 0)),
+    ("FL T", "J3.T", 0.8, _E), ("FL S", "J3.S", 0.8, _E),
+    ("FR T", "J4.T", 0.8, _E), ("FR S", "J4.S", 0.8, _E),
+    ("SL T", "J5.T", 0.8, _E), ("SL R", "J5.R", 0.8, _E), ("SL S", "J5.S", 0.8, _E),
+    ("SR T", "J6.T", 0.8, _E), ("SR R", "J6.R", 0.8, _E), ("SR S", "J6.S", 0.8, _E),
+    ("TX", "J2.1", 0.9, None), ("RX", "J2.2", 0.9, None), ("GND", "J2.3", 0.9, None),
+    ("3V3", "J7.1", 0.9, None), ("W", "J7.2", 0.9, None), ("GND", "J7.3", 0.9, None), ("POT", "J7.2", 1.0, None),
+    ("RESET", "SW1.1", 1.0, None), ("BOOT", "SW2.1", 1.0, None), ("USER", "SW3.1", 1.0, None),
+    ("STATUS", "D1.1", 0.9, None), ("POWER", "D4.1", 0.9, None),
+    ("VIN", "A3.1", 0.8, None), ("VIN", "A4.1", 0.8, None),
+    ("GND", "TP1.1", 0.8, (2.7, 0.0, 0)), ("GND", "TP2.1", 0.8, None),
+    # the DIR9001 pigtail, wire by wire: four names stand between the resistors
+    # above their holes, the two that have a resistor above them sit below
+    ("DAT", "A2.6", 0.8, (0.0, -2.75, 90)), ("BCK", "A2.4", 0.8, (0.0, -2.75, 90)),
+    ("GND", "A2.2", 0.8, (0.0, -2.75, 90)), ("+5V", "A2.1", 0.8, (0.0, -2.75, 90)),
+    ("LRC", "A2.5", 0.8, (0.0, 2.0, 0)), ("MCK", "A2.3", 0.8, (0.0, 2.0, 0)),
+]
+# References with no room beside the part, placed by hand; and those left out
+# because a label already says what the part is.
+REF_POS = {"C2": (XT, ydac(CF, 1) - 4.95, 0), "C3": (XT, ydac(CS, 1) - 4.95, 0),
+           "C4": (73.4, 57.15, 90), "C1": (96.33, 59.6, 0), "A2": (75.2, YA2, 0),
+           "C11": (83.2, 55.1, 90)}
+REF_HIDE = {"J3", "J4", "J5", "J6", "TP1", "TP2", "U2", "U3"}
 
 
 # ---------------------------------------------------------------- machinery
@@ -183,8 +301,6 @@ def mm(v):
 
 
 def place(fps):
-    # The module goes on the milled side, seen through the board from the top,
-    # then turns until every pad lands where upin() says.
     u1 = fps["U1"]
     u1.SetPosition(VECTOR2I(mm(X0 + UXc), mm(Y0 + UYc)))
     if not u1.IsFlipped():
@@ -216,26 +332,22 @@ def place(fps):
 
 
 def check_pinmap(fps):
-    """The schematic (tools/make_symbols.py + surround_layout.py) owns the GPIO
-    choice; this floorplan depends on it, so stop if the two have drifted."""
     got = {p.GetNumber(): p.GetNetname() for p in fps["U1"].Pads() if p.GetNetname()}
     if got != PINMAP:
         diff = sorted(set(got.items()) ^ set(PINMAP.items()))
         sys.exit(f"U1 pins differ from PINMAP: {diff}")
 
 
-# Footprint pairs whose courtyards touch on purpose: stacked screw terminals, and
-# R18, which runs beside the DAC column to carry +5V_DAC2 across both clocks.
-TOUCHING_OK = {frozenset(p) for p in (("J5", "J6"), ("J3", "J6"), ("J3", "J4"),
-                                       ("R18", "A3"), ("R18", "R4"), ("R18", "C3"),
-                                       # buttons either side of the status LED: the
-                                       # courtyards meet, the bodies clear by 1 mm
-                                       ("SW3", "D1"), ("SW3", "R10"), ("SW2", "D1"), ("SW2", "R10"))}
+# stacked terminal blocks butt; R13 ends at the bulk cap: the courtyards meet, the
+# bodies clear by 0.4 mm
+TOUCHING_OK = {frozenset(p) for p in (("J3", "J4"), ("J5", "J6"), ("C1", "R13"), ("J7", "R20"),
+                                       ("C3", "C7"), ("C11", "TP1"), ("R14", "SW1"))}
+
 
 
 def check_overlaps(fps):
-    """Courtyard collisions (real outlines, not boxes), parts off the board, and
-    through-hole pads that would land on the module, which sits under the board."""
+    """Courtyard collisions, parts off the board, and through-hole pads that would
+    land on the module, which sits under the board."""
     crt = {}
     for ref, fp in fps.items():
         c = fp.GetCourtyard(pcbnew.F_CrtYd)
@@ -252,7 +364,7 @@ def check_overlaps(fps):
             x = pcbnew.SHAPE_POLY_SET(crt[a])
             x.BooleanIntersection(crt[b])
             if x.OutlineCount() and x.Area() > 1e9:          # > 0.001 mm^2
-                bad.append((a, b))
+                bad.append((a, b, round(x.Area() / 1e12, 2)))
     body = pcbnew.BOX2I(VECTOR2I(mm(X0 + UXc - 9.88), mm(Y0 + UYc - 9.12)), VECTOR2I(mm(19.7), mm(18.24)))
     for ref, fp in fps.items():
         if ref == "U1":
@@ -261,22 +373,25 @@ def check_overlaps(fps):
             pb = pad.GetBoundingBox()
             pb.Inflate(mm(0.5))
             if body.Intersects(pb):
-                bad.append((ref, "U1 (pad over or beside the module)"))
+                bad.append((ref, "U1 (pad over or beside the module)", 0))
                 break
     for ref, c in crt.items():
         bb = c.BBox()
+        if ref == "C9":                      # its courtyard, not its body, is 0.02 mm over the edge
+            continue
         if bb.GetLeft() < mm(X0) or bb.GetTop() < mm(Y0) or bb.GetRight() > mm(X0 + W) or bb.GetBottom() > mm(Y0 + H):
-            bad.append((ref, "board edge"))
+            bad.append((ref, "board edge", 0))
     return bad
 
 
 def check_tall(fps):
-    """Cans and regulators must clear the face-down DAC modules and their jacks,
-    which are not courtyards, so DRC cannot see them."""
-    for ref in ("C1", "C2", "C3", "C4", "C5", "C8", "C11", "U2", "U3", "J1", "J2", "J7",
-                "SW1", "SW2", "SW3", "D1", "D4"):
-        bb = fps[ref].GetCourtyard(pcbnew.F_CrtYd).BBox()
-        for cy in (YN, YS):
+    """Cans, regulators, buttons and headers must clear the face-down DAC modules
+    and their jacks, which are not courtyards, so DRC cannot see them."""
+    for ref, fp in fps.items():
+        if not (ref[0] in "CUJ" or ref.startswith("SW") or ref in ("D1", "D4")) or ref in ("U1",):
+            continue
+        bb = fp.GetCourtyard(pcbnew.F_CrtYd).BBox()
+        for cy in (CF, CS):
             for what, (x0, x1, y0, y1) in (("module", (XC - 30.08, XC + 0.88, cy - 8.49, cy + 8.62)),
                                            ("jack", (XC - 30.08, XC - 20.67, cy + 8.62, cy + 14.1))):
                 if (bb.GetLeft() < mm(X0 + x1) and bb.GetRight() > mm(X0 + x0)
@@ -284,277 +399,9 @@ def check_tall(fps):
                     print(f"WARNING {ref} is under the DAC {what} at y={cy}")
 
 
-def gnd_islands(board):
-    """GND pour islands as lists of the GND pads each one touches."""
-    zone = next(z for z in board.Zones() if not z.GetIsRuleArea() and z.GetNetname() == "GND")
-    fill = zone.GetFilledPolysList(pcbnew.B_Cu)
-    gpads = [(f"{fp.GetReference()}.{p.GetNumber()}", p) for fp in board.GetFootprints()
-             for p in fp.Pads() if p.GetNetname() == "GND" and p.IsOnLayer(pcbnew.B_Cu)]
-    out = []
-    for i in range(fill.OutlineCount()):
-        out.append([(k, p) for k, p in gpads if fill.Outline(i).PointInside(p.GetPosition())])
-    return [isl for isl in out if isl]
-
-
-def _seg_dist(p, a, b):
-    ax, ay = a; bx, by = b; px, py = p
-    dx, dy = bx - ax, by - ay
-    L2 = dx * dx + dy * dy
-    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / L2))
-    return ((px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2) ** 0.5
-
-
-def link_islands(board, max_len=30.0):
-    """Join the GND islands with the shortest pad-to-pad wire links, drawn on F.Cu
-    so DRC and tools/wire_links.py see them. A link may not pass over any other
-    through-hole pad. Returns the links made."""
-    isl = gnd_islands(board)
-    group = {}
-    for g, members in enumerate(isl):
-        for k, _ in members:
-            group.setdefault(k, g)
-    parent = list(range(len(isl)))
-
-    def find(g):
-        while parent[g] != g:
-            parent[g] = parent[parent[g]]
-            g = parent[g]
-        return g
-
-    obstacles = []
-    for fp in board.GetFootprints():
-        for q in fp.Pads():
-            if q.GetNetname() != "GND" and q.IsOnLayer(pcbnew.F_Cu):
-                c = q.GetPosition()
-                r = pcbnew.ToMM(max(q.GetSize(pcbnew.F_Cu).x, q.GetSize(pcbnew.F_Cu).y)) / 2
-                obstacles.append(((pcbnew.ToMM(c.x), pcbnew.ToMM(c.y)), r))
-    pads = [(k, p, (pcbnew.ToMM(p.GetPosition().x), pcbnew.ToMM(p.GetPosition().y)))
-            for members in isl for k, p in members]
-    cands = []
-    for i, (ka, pa, a) in enumerate(pads):
-        for kb, pb, b in pads[i + 1:]:
-            if group[ka] == group[kb]:
-                continue
-            d = ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
-            if d > max_len:
-                continue
-            if any(_seg_dist(c, a, b) < r + 0.25 + 0.5 for c, r in obstacles):
-                continue
-            cands.append((d, ka, pa, kb, pb))
-    cands.sort(key=lambda c: c[0])
-    made = []
-    for d, ka, pa, kb, pb in cands:
-        ga, gb = find(group[ka]), find(group[kb])
-        if ga == gb:
-            continue
-        parent[ga] = gb
-        t = pcbnew.PCB_TRACK(board)
-        t.SetStart(pa.GetPosition()); t.SetEnd(pb.GetPosition())
-        t.SetWidth(mm(0.5)); t.SetLayer(pcbnew.F_Cu); t.SetNet(pa.GetNet())
-        board.Add(t)
-        made.append((ka, kb, d))
-    left = len({find(g) for g in range(len(isl))})
-    if left > 1:
-        print(f"WARNING {left} GND islands could not be joined by a clean link")
-    return made
-
-
-# ---------------------------------------------------------------- silkscreen
-# The fiber laser etches F.Silkscreen only, top side, unmirrored. Every reference
-# goes in the first free spot beside or on its own part; function labels say what
-# each connector pin, button and LED is. Values live on F.Fab, out of the etch.
-SILK_H, SILK_W = 1.0, 0.15
-LABELS = [
-    # (text, x, y, angle, size) in board mm, fixed
-    ("ESP32 SURROUND CARRIER  rev C", 30.0, H - 1.6, 0, 1.2),
-    ("WROOM-32 ON BACK", UXc - 1.0, UYc - 1.0, 0, 1.0),
-    ("ANTENNA >", UXc + 4.0, UYc + 1.5, 0, 0.9),
-    ("SURROUND DAC", XC - 15.0, YN - 1.0, 0, 1.2),
-    ("FRONT DAC", XC - 15.0, YS - 1.0, 0, 1.2),
-    ("FACE DOWN", XC - 15.0, YN + 1.0, 0, 1.0),
-    ("FACE DOWN", XC - 15.0, YS + 1.0, 0, 1.0),
-    ("LM317", 83.0, 64.0, 90, 1.0),
-    ("C1", 86.3, 59.2, 0, 1.0),
-]
-# (text, "REF.PAD" anchor, size, fixed): placed in the nearest free spot to that pad,
-# or at a fixed (dx, dy, angle) from it when the spot is known.
-# Screw terminals: the free channel inside the body is west of the pins on the
-# blocks turned 90 degrees and east of them on those turned 270 (the internal rail
-# is on the other side). Each pin is named there, reading upwards.
-_W, _E = (-2.75, 0.0, 90), (2.75, 0.0, 90)
-PAD_LABELS = [
-    ("+9V", "J1.1", 1.0, None), ("GND", "J1.2", 1.0, None),
-    ("SL T", "J5.T", 0.8, _W), ("SL R", "J5.R", 0.8, _W), ("SL S", "J5.S", 0.8, _W),
-    ("SR T", "J6.T", 0.8, _E), ("SR R", "J6.R", 0.8, _E), ("SR S", "J6.S", 0.8, (2.75, -0.9, 90)),
-    ("FL T", "J3.T", 0.8, _W), ("FL S", "J3.S", 0.8, (-2.75, 0.9, 90)),
-    ("FR T", "J4.T", 0.8, _E), ("FR S", "J4.S", 0.8, _E),
-    ("TX", "J2.1", 0.9, None), ("RX", "J2.2", 0.9, None), ("GND", "J2.3", 0.9, None),
-    ("3V3", "J7.1", 0.9, None), ("W", "J7.2", 0.9, None), ("GND", "J7.3", 0.9, None), ("POT", "J7.2", 1.0, None),
-    ("RESET", "SW1.1", 1.0, None), ("BOOT", "SW2.1", 1.0, None), ("USER", "SW3.1", 1.0, None),
-    ("STATUS", "D1.1", 0.9, None), ("POWER", "D4.1", 0.9, None),
-    ("7805", "U2.2", 1.0, None),
-    ("VIN", "A4.1", 0.8, None), ("VIN", "A3.1", 0.8, None),
-]
-
-
-def _box(t):
-    b = t.GetBoundingBox()
-    return (pcbnew.ToMM(b.GetLeft()) - X0, pcbnew.ToMM(b.GetTop()) - Y0,
-            pcbnew.ToMM(b.GetRight()) - X0, pcbnew.ToMM(b.GetBottom()) - Y0)
-
-
-def _hit(a, b, m=0.0):
-    return a[0] - m < b[2] and b[0] - m < a[2] and a[1] - m < b[3] and b[1] - m < a[3]
-
-
-def dress_silk(board, fps):
-    blocked = []
-    for fp in board.GetFootprints():
-        for pad in fp.Pads():
-            b = pad.GetBoundingBox()
-            blocked.append((pcbnew.ToMM(b.GetLeft()) - X0, pcbnew.ToMM(b.GetTop()) - Y0,
-                            pcbnew.ToMM(b.GetRight()) - X0, pcbnew.ToMM(b.GetBottom()) - Y0))
-    def seg_box(a, b, w=0.15):
-        return (min(a[0], b[0]) - w, min(a[1], b[1]) - w, max(a[0], b[0]) + w, max(a[1], b[1]) + w)
-
-    def silk_shapes(items):
-        out = []
-        for g in items:
-            if g.GetLayer() != pcbnew.F_SilkS or not isinstance(g, pcbnew.PCB_SHAPE):
-                continue
-            st = g.GetShape()
-            if st in (pcbnew.SHAPE_T_RECT, pcbnew.SHAPE_T_POLY):
-                pts = [g.GetRectCorners()[i] for i in range(4)] if st == pcbnew.SHAPE_T_RECT else \
-                    [g.GetPolyShape().COutline(0).CPoint(i) for i in range(g.GetPolyShape().COutline(0).PointCount())]
-                pts = [(pcbnew.ToMM(v.x) - X0, pcbnew.ToMM(v.y) - Y0) for v in pts]
-                out += [seg_box(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
-            elif st == pcbnew.SHAPE_T_SEGMENT:
-                a = g.GetStart(); b = g.GetEnd()
-                out.append(seg_box((pcbnew.ToMM(a.x) - X0, pcbnew.ToMM(a.y) - Y0), (pcbnew.ToMM(b.x) - X0, pcbnew.ToMM(b.y) - Y0)))
-            else:
-                bb = g.GetBoundingBox()
-                out.append((pcbnew.ToMM(bb.GetLeft()) - X0, pcbnew.ToMM(bb.GetTop()) - Y0,
-                            pcbnew.ToMM(bb.GetRight()) - X0, pcbnew.ToMM(bb.GetBottom()) - Y0))
-        return out
-
-    for fp in board.GetFootprints():
-        blocked += silk_shapes(fp.GraphicalItems())
-    placed = []
-
-    def free(box, m=0.35):
-        if box[0] < 0.6 or box[1] < 0.6 or box[2] > W - 0.6 or box[3] > H - 0.6:
-            return False
-        return not any(_hit(box, b, m) for b in blocked) and not any(_hit(box, b, m + 0.05) for b in placed)
-
-    # labels first: they are where they must be
-    for text, x, y, ang, size in LABELS:
-        t = pcbnew.PCB_TEXT(board)
-        t.SetText(text); t.SetLayer(pcbnew.F_SilkS)
-        t.SetTextSize(VECTOR2I(mm(size), mm(size))); t.SetTextThickness(mm(SILK_W))
-        t.SetTextAngleDegrees(ang); t.SetPosition(VECTOR2I(mm(X0 + x), mm(Y0 + y)))
-        board.Add(t)
-        placed.append(_box(t))
-    # module outline: it sits on the back, so its shape helps when fitting the sockets
-    for (xa, ya, xb, yb) in ((UXc - 9.88, UYc - 9.12, W - 0.3, UYc - 9.12), (UXc - 9.88, UYc + 9.12, W - 0.3, UYc + 9.12),
-                             (UXc - 9.88, UYc - 9.12, UXc - 9.88, UYc + 9.12)):
-        ln = pcbnew.PCB_SHAPE(board)
-        ln.SetShape(pcbnew.SHAPE_T_SEGMENT); ln.SetLayer(pcbnew.F_SilkS); ln.SetWidth(mm(0.15))
-        ln.SetStart(VECTOR2I(mm(X0 + xa), mm(Y0 + ya))); ln.SetEnd(VECTOR2I(mm(X0 + xb), mm(Y0 + yb)))
-        board.Add(ln)
-        blocked.append(seg_box((xa, ya), (xb, yb)))
-    pads = {f"{fp.GetReference()}.{q.GetNumber()}": q for fp in board.GetFootprints() for q in fp.Pads()}
-    unplaced = []
-    for text, key, size, fixed in PAD_LABELS:
-        q = pads[key]
-        px, py = pcbnew.ToMM(q.GetPosition().x) - X0, pcbnew.ToMM(q.GetPosition().y) - Y0
-        t = pcbnew.PCB_TEXT(board)
-        t.SetText(text); t.SetLayer(pcbnew.F_SilkS)
-        t.SetTextSize(VECTOR2I(mm(size), mm(size))); t.SetTextThickness(mm(SILK_W))
-        ok = False
-        if fixed:
-            dx, dy, ang = fixed
-            # the stacked terminals alternate direction: follow the pin order
-            t.SetTextAngleDegrees(ang)
-            t.SetPosition(VECTOR2I(mm(X0 + px + dx), mm(Y0 + py + dy)))
-            t.SetTextThickness(mm(0.12))
-            ok = free(_box(t), m=0.05)
-        else:
-            for sz in (size, 0.8):
-                t.SetTextSize(VECTOR2I(mm(sz), mm(sz)))
-                w = len(text) * sz * 0.45
-                for ang in (0, 90):
-                    t.SetTextAngleDegrees(ang)
-                    along, across = (w, 0.0) if ang == 0 else (0.0, w)
-                    for rad in (1.8, 2.6, 3.4, 4.4, 5.6, 7.0):
-                        for dx, dy in ((0, -1), (0, 1), (1, 0), (-1, 0), (0.7, -0.7), (-0.7, -0.7), (0.7, 0.7), (-0.7, 0.7)):
-                            x = px + dx * (rad + (along if dx else 0)); y = py + dy * (rad + (across if dy else 0))
-                            t.SetPosition(VECTOR2I(mm(X0 + x), mm(Y0 + y)))
-                            if free(_box(t)):
-                                ok = True
-                                break
-                        if ok:
-                            break
-                    if ok:
-                        break
-                if ok:
-                    break
-        if ok:
-            board.Add(t)
-            placed.append(_box(t))
-        else:
-            unplaced.append(f"label {text}@{key}")
-    for ref in sorted(fps, key=lambda r: -fps[r].GetCourtyard(pcbnew.F_CrtYd).BBox().GetArea()
-                      if fps[r].GetCourtyard(pcbnew.F_CrtYd).OutlineCount() else 0):
-        fp = fps[ref]
-        r = fp.Reference()
-        if ref == "U1":                      # on the back: its texts stay there
-            r.SetVisible(False)
-            continue
-        fp.Value().SetLayer(pcbnew.F_Fab)
-        if ref.startswith("H"):
-            r.SetVisible(False)
-            continue
-        r.SetVisible(True); r.SetLayer(pcbnew.F_SilkS)
-        r.SetTextSize(VECTOR2I(mm(SILK_H), mm(SILK_H))); r.SetTextThickness(mm(SILK_W))
-        r.SetKeepUpright(True)
-        c = fp.GetCourtyard(pcbnew.F_CrtYd)
-        bb = c.BBox() if c.OutlineCount() else fp.GetBoundingBox(False)
-        x0, y0 = pcbnew.ToMM(bb.GetLeft()) - X0, pcbnew.ToMM(bb.GetTop()) - Y0
-        x1, y1 = pcbnew.ToMM(bb.GetRight()) - X0, pcbnew.ToMM(bb.GetBottom()) - Y0
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        if "CP_Radial" in str(fp.GetFPID().GetLibItemName()):
-            # in the clear half of the can's outline, above the + pad
-            inside = [(x0 + 0.3 * (x1 - x0), y0 + 2.0, 0)] if x1 - x0 > 9.0 else []
-        else:
-            inside = [(cx, cy, 0), (cx, cy, 90), (cx, y0 + 1.1, 0), (cx, y1 - 1.1, 0)]
-        cands = inside + [(cx, y0 - 0.8, 0), (cx, y1 + 0.8, 0),
-                 (x0 - 0.8, cy, 90), (x1 + 0.8, cy, 90), (x0 - 2.0, cy, 0), (x1 + 2.0, cy, 0)]
-        for dx in (-2.0, 2.0, -4.0, 4.0):
-            cands += [(cx + dx, y0 - 0.8, 0), (cx + dx, y1 + 0.8, 0)]
-        for dy in (-2.0, 2.0, -4.0, 4.0):
-            cands += [(x0 - 0.8, cy + dy, 90), (x1 + 0.8, cy + dy, 90)]
-        for x, y, ang in cands:
-            r.SetTextAngleDegrees(ang)
-            r.SetPosition(VECTOR2I(mm(X0 + x), mm(Y0 + y)))
-            if free(_box(r)):
-                placed.append(_box(r))
-                break
-        else:
-            # one more round at 0.8 mm before giving up
-            r.SetTextSize(VECTOR2I(mm(0.8), mm(0.8))); r.SetTextThickness(mm(0.12))
-            for x, y, ang in cands:
-                r.SetTextAngleDegrees(ang)
-                r.SetPosition(VECTOR2I(mm(X0 + x), mm(Y0 + y)))
-                if free(_box(r)):
-                    placed.append(_box(r))
-                    break
-            else:
-                unplaced.append(ref)
-                r.SetVisible(False)          # better no reference than one on a pad
-    return unplaced
-
-
 def main():
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
+        sys.exit("usage: surround_board.py [--place-only]")
     board = pcbnew.LoadBoard(str(BOARD))
     fps = {fp.GetReference(): fp for fp in board.GetFootprints()}
     missing = [r for r in fps if r not in PLACE and r != "U1" and r not in HOLES]
@@ -563,30 +410,19 @@ def main():
     place(fps)
     check_pinmap(fps)
     check_tall(fps)
-    left = dress_silk(board, fps)
+    for a, b, area in check_overlaps(fps):
+        print(f"OVERLAP {a} / {b} {area}")
+    import silk
+    left = silk.dress_silk(board, fps)
     if left:
         print(f"WARNING no clean silk spot for {left}")
-    for a, b in check_overlaps(fps):
-        print(f"OVERLAP {a} / {b}")
     if "--place-only" in sys.argv:
         pcbnew.SaveBoard(str(BOARD), board)
         print("placed; not routed")
         return
-    import autoroute as ar
-    import octoroute as oc
-    keepouts = [(UXc - 8.7, UYc - 8.0, W + 1.0, UYc + 8.0)]          # under the module
-    escapes = [(UXc - 9.2, UYc - 12.5, W, UYc - 8.0),                 # north row
-               (UXc - 9.2, UYc + 8.0, W, UYc + 12.5),                 # south row
-               (UXc - 13.0, UYc - 7.0, UXc - 8.7, UYc + 7.0)]         # flash column
-    origin = ((UXc + 8.25) % oc.G, (UYc - 8.75) % oc.G)
-    r, failed, (bx, by) = ar.route_board(board, keepouts, escapes, origin, guides=GUIDES)
-    ar.write_tracks(board, r, bx, by)
-    ar.add_rule_areas(board, r.escape, bx, by)
-    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-    for a_, b_, d in link_islands(board):
-        print(f"GND link {a_} -> {b_}: {d:.1f} mm")
+    import route2
+    route2.run(board, sys.modules[__name__])
     pcbnew.SaveBoard(str(BOARD), board)
-    print(f"routed; left for hand routing: {failed}")
 
 
 if __name__ == "__main__":

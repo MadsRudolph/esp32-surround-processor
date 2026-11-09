@@ -112,12 +112,13 @@ dac_footprint("PCM5102_Module_FaceDown")
 # (bare tinned ends) is soldered into these holes. Pad numbers keep the old 1x10
 # socket's 1-6 so the routing is unchanged; silk names the wire, as the module's
 # I2S-OUT labels it.
-# Nearly the order of the module's I2S-OUT connector and its pigtail (DATA BCLK LRCK
-# MCLK +5V GND): only BCLK and LRCK swap, so the clocks reach the carrier in the
-# order the DAC column needs them. Cross those two wires.
-DIR_PADS = [("6", "DATA"), ("5", "LRCK"), ("4", "BCLK"), ("3", "MCLK"), ("1", "+5V"), ("2", "GND")]
+# The module's I2S-OUT connector and its pigtail run DATA BCLK LRCK MCLK +5V GND.
+# Here BCLK and LRCK swap, so the clocks reach the carrier in the order the
+# resistor row needs them, and +5V and GND swap, so the ground hole faces the
+# open copper and the supply comes in at the end of the row. Cross those two pairs.
+DIR_PADS = [("6", "DATA"), ("5", "LRCK"), ("4", "BCLK"), ("3", "MCLK"), ("2", "GND"), ("1", "+5V")]
 body = "".join(pad(n, 0.0, i * pitch, shape="rect" if n == "1" else "circle") for i, (n, _) in enumerate(DIR_PADS))
-extra = "".join(text(t, -2.6, i * pitch, layer="F.SilkS", size=0.8) for i, (_, t) in enumerate(DIR_PADS))
+extra = ""          # the wire names are placed by tools/surround_board.py, clear of the parts around
 footprint("DIR9001_Pigtail_1x6", "Six solder holes for the DIR9001-I2S board's XH pigtail: +5V GND MCLK BCLK LRCK DATA",
           body, -2.2, 15.0, (-1.15, -1.15, 1.15, 13.85), (-1.0, -1.0, 1.0, 13.7), extra)
 

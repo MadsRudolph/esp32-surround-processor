@@ -9,7 +9,7 @@ channel at the copper top (the `cnc-fine` profile: clearance 0.50, track 0.50).
 
   ESP     0.9 mm   every net with a pad on the ESP32, including both clocks: the
                    same width as the module's pads. With the pour beside it at
-                   0.50 mm this is a 76 ohm coplanar line (tools/impedance.py), which
+                   0.50 mm and the plane on the far face this is a 71 ohm line (tools/impedance.py), which
                    is what the 43R2 series resistors are sized for.
   I2S     0.5 mm   the short links on the far side of the series resistors.
   ANALOG  0.5 mm   the DAC outputs. Impedance is irrelevant at audio, but these
@@ -24,8 +24,8 @@ from pathlib import Path
 
 PRO = Path(__file__).resolve().parents[1] / "hardware/surround.kicad_pro"
 
-ESP = ["DIR_BCK", "DIR_LRCK", "Net-(U1-IO34)",
-       "Net-(U1-IO17)", "Net-(U1-IO18)", "XSMT", "POT", "EN", "BOOT", "USER", "LED",
+ESP = ["DIR_BCK", "DIR_LRCK", "Net-(U1-IO35)",
+       "Net-(U1-IO2)", "Net-(U1-IO13)", "XSMT", "POT", "EN", "BOOT", "USER", "LED",
        "TXD0", "RXD0", "+3V3"]
 I2S = ["Net-(A2-BCKO)", "Net-(A2-LRCKO)", "Net-(A2-DOUT)", "Net-(A3-DIN)", "Net-(A4-DIN)"]
 ANALOG = ["Net-(A3-OUTL)", "Net-(A3-OUTR)", "Net-(A4-OUTL)", "Net-(A4-OUTR)",
@@ -54,7 +54,7 @@ def main():
                                + [{"netclass": "ANALOG", "pattern": n} for n in ANALOG]
                                + [{"netclass": "POWER", "pattern": n} for n in POWER])
     r = d["board"]["design_settings"]["rules"]
-    r.update(min_track_width=1.0, min_clearance=CLEARANCE, min_through_hole_diameter=0.8,
+    r.update(min_track_width=0.5, min_clearance=CLEARANCE, min_through_hole_diameter=0.8,
              min_via_diameter=1.6, min_via_annular_width=0.3)
     PRO.write_text(json.dumps(d, indent=2), encoding="utf-8")
     print("netclasses: " + ", ".join(f"{n} {w} mm" for n, w in WIDTH.items())

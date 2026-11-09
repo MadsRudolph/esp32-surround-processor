@@ -24,15 +24,15 @@ TOSLINK ─► TORX ─► DIR9001 PLL ─┬─► BCKO  = 64 fs  (3.072 MHz @ 
                                 ├─► DOUT  (24-bit, I2S, changes ≤ 5 ns after BCKO falling edge)
                                 └─► SCKO  (unused, leave PSCK[1:0] = LL → 128 fs, lowest EMI)
 
-BCKO ──┬─► ESP32 GPIO32 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
+BCKO ──┬─► ESP32 GPIO14 ──► I2S0 BCLK-in  and  I2S1 BCLK-in  (two matrix routes, one pad)
        ├─► DAC1 BCK
        └─► DAC2 BCK
-LRCKO ─┬─► ESP32 GPIO35 ──► I2S0 WS-in and I2S1 WS-in
+LRCKO ─┬─► ESP32 GPIO26 ──► I2S0 WS-in and I2S1 WS-in
        ├─► DAC1 LRCK
        └─► DAC2 LRCK
-DOUT ───► ESP32 GPIO34 ──► I2S0 DIN
-ESP32 GPIO19 (I2S0 DOUT) ──► DAC1 DIN
-ESP32 GPIO23 (I2S1 DOUT) ──► DAC2 DIN
+DOUT ───► ESP32 GPIO35 ──► I2S0 DIN
+ESP32 GPIO2  (I2S0 DOUT) ──► DAC1 DIN
+ESP32 GPIO13 (I2S1 DOUT) ──► DAC2 DIN
 ```
 
 ### 2.2 Can I2S0 slave-RX, I2S0 TX and I2S1 TX all run from the recovered clock? Yes.
@@ -68,31 +68,34 @@ An APLL at 12.288 MHz is free-running against the TV's crystal. At ±100 ppm the
 
 ## 3. Deliverable 2: ESP-WROOM-32 pinout
 
-| Net | GPIO | Pin row | Peripheral | Notes |
+| Net | GPIO | Module pin | Peripheral | Notes |
 |---|---|---|---|---|
-| DIR_AUDIO | 36 (SENSOR_VP) | upper | GPIO poll | non-PCM flag, active high |
-| DIR_ERROR | 39 (SENSOR_VN) | upper | GPIO ISR, any edge | firmware debounces 5 ms |
-| DIR_DOUT | 34 | upper | I2S0 din | input-only pin |
-| DIR_LRCK | 35 | upper | I2S0 ws + I2S1 ws | input-only pin |
-| DIR_BCK | 32 | upper | I2S0 bclk + I2S1 bclk | |
-| XSMT (both DACs) | 21 | lower | GPIO | 10 kΩ to GND: muted through boot |
-| DAC1_DIN | 19 | lower | I2S0 dout | 43 Ω series at the ESP32 |
-| DAC2_DIN | 23 | lower | I2S1 dout | 43 Ω series at the ESP32 |
-| VOLUME_POT | 33 | upper | ADC1 | 1 kΩ in series at the ESP32; panel pot on flying leads |
-| BTN_USER | 18 | lower | GPIO | internal pull-up |
-| BOOT | 0 | lower | strap | 10 kΩ pull-up, button to GND |
-| RESET | EN | upper | | 10 kΩ pull-up, 1 µF and button to GND |
-| STATUS_LED | 4 | lower | GPIO | 330 Ω |
-| Spare | 5, 13, 14, 16, 17, 22, 25, 26, 27 | | | 5 pulses at boot, 13/14 are JTAG |
+| DIR_BCK | 14 | 13, south row | I2S0 bclk + I2S1 bclk | JTAG TMS until the firmware starts; harmless with no clock on GPIO13 |
+| DIR_LRCK | 26 | 11, south row | I2S0 ws + I2S1 ws | |
+| DIR_DOUT | 35 | 7, south row | I2S0 din | input-only pin |
+| VOLUME_POT | 33 | 9, south row | ADC1 | 1 kΩ in series; panel pot on flying leads |
+| DAC1_DIN (front) | 2 | 24, west column | I2S0 dout | strapping pin: only a DAC input hangs on it, so it stays low at reset |
+| DAC2_DIN (surround) | 13 | 16, west column | I2S1 dout | |
+| BTN_USER | 15 | 23, west column | GPIO | internal pull-up; strapping pin, do not hold it during reset |
+| XSMT (both DACs) | 21 | 33, north row | GPIO | 10 kΩ to GND: muted through boot |
+| STATUS_LED | 17 | 28, north row | GPIO | 332 Ω |
+| BOOT | 0 | 25, north row | strap | 10 kΩ pull-up, button to GND |
+| UART | 1, 3 | 35, 34, north row | UART0 | flashing and logs |
+| RESET | EN | 3, south row | | 10 kΩ pull-up, 1 µF and button to GND |
+| Spare | 4, 5, 16, 18, 19, 22, 23, 25, 27, 32, 34, 36, 39 | | | 5 pulses at boot |
 
-Two things about this map are set by the board rather than by the peripheral.
-The five DIR9001 signals all sit on the **upper** pin row in the order the
-DIR9001's own pins meet them, so the bus fans out without crossing. The two DAC
-data lines sit on the **lower** row: the upper row is a 2.54 mm wall with only a
-20 mm channel behind it, already carrying the five DIR9001 signals, and a data
-line taken from there could not be routed on copper at all. 
+The DIR9001's ERROR and AUDIO flags are not brought to the carrier; the firmware
+detects unlock from LRCK and IEC 61937 from the data.
 
-Kept free on purpose: GPIO 0, 2, 12, 15 (strapping; 12 must never be pulled high or the flash runs at 1.8 V and the module bricks at boot), GPIO 1/3 (UART0 flashing and logs), GPIO 6–11 (SPI flash, fatal). GPIO 36/39 have an erratum where they glitch when the RTC ADC power-gates in light sleep; this design never sleeps, and they carry only status flags.
+This map is set by the board rather than by the peripheral: every I2S signal can go
+to any pin through the GPIO matrix, so each one sits on the castellation that faces
+its copper. The DIR9001 lines take alternate pins of the south row, above their
+series resistors, so their tracks leave 2.54 mm apart instead of 0.37 mm. The two
+DAC data lines take the only two free pins of the west column, one each side of the
+flash pins, and reach their DACs as mirror images. XSMT, BOOT, the LED and the UART
+take the north row.
+
+Strapping pins: GPIO 0, 2, 12, 15 (0 is BOOT, 2 and 15 are loaded only as the table says, 12 is unused; 12 must never be pulled high or the flash runs at 1.8 V and the module bricks at boot), GPIO 1/3 (UART0 flashing and logs), GPIO 6–11 (SPI flash, fatal). GPIO 36/39 have an erratum where they glitch when the RTC ADC power-gates in light sleep; this design never sleeps, and they carry only status flags.
 
 ## 4. Deliverable 3: schematic, netlist, straps, power, grounding
 
@@ -259,24 +262,26 @@ The realistic underrun cause is not DSP load but SPI flash writes: an NVS write 
 - Mute state machine: ERROR high → XSMT low, output zeros. ERROR low for 100 ms → classify PCM vs IEC 61937 → output two valid buffers → XSMT high. Muting also on every rate or format change, since the PCM5102A soft-mute ramp takes 150 ts + 0.2 ms ≈ 3.3 ms and avoids the pop.
 - Volume: digital gain in the ESP32 before conversion to 32-bit output; with 16-bit sources and a 32-bit DAC there is no resolution loss until beyond −48 dB. Read the pot on ADC1 with averaging and some hysteresis, so a noisy wiper does not make the volume hunt.
 
-## 5.6 Transmission lines on a single-sided board
+## 5.6 Transmission lines on the double-sided board
 
-Worth stating explicitly because the usual formula does not apply here. The board has copper on one side only, so a trace is **not** microstrip: there is no return conductor under it. It is a coplanar waveguide with the ground pour beside it and air and FR4 below, which puts roughly half the field in each, so the effective permittivity is (εr + 1)/2 ≈ 2.65 rather than 3.3. Using a microstrip formula would predict about 110 Ω for a 1 mm trace on 1.6 mm FR4 and would be meaningless.
+The board has a ground plane on the top face, 1.6 mm of FR4 away from the bottom-face traces, and the ground pour beside each trace at 0.50 mm. That is a coplanar waveguide over a ground plane. At this geometry the side grounds still carry most of the field, so the plane lowers the impedance by only a few ohms compared with the old single-sided board; what it adds is an unbroken return path under every clock, which the single-sided pour could not give.
 
 | Track width | Z0 | Propagation delay |
 |---|---|---|
-| 0.3 mm | 105 Ω | 5.43 ps/mm |
-| 0.5 mm | 91 Ω | 5.43 ps/mm |
-| 0.9 mm | 76 Ω | 5.43 ps/mm |
-| 1.0 mm | 74 Ω | 5.43 ps/mm |
+| 0.3 mm | 102 Ω | 5.47 ps/mm |
+| 0.5 mm | 87 Ω | 5.48 ps/mm |
+| 0.9 mm | 71 Ω | 5.52 ps/mm |
+| 1.0 mm | 68 Ω | 5.53 ps/mm |
 
-Three consequences.
+Figures from `tools/impedance.py`. Three consequences.
 
-**The board is at the boundary where termination matters at all.** At 5.43 ps/mm a 2 ns edge has a critical length of about 61 mm on the usual rise-time-over-six rule. The BCK and LRCK nets span the board and exceed it; the point-to-point data lines at 45 mm do not. So the series resistors are doing real work on the clocks and are insurance on the data lines.
+**The board is at the boundary where termination matters at all.** At 5.5 ps/mm a 2 ns edge has a critical length of about 60 mm on the usual rise-time-over-six rule. BCK is about 60 mm from its resistor to the far DAC and LRCK about 110 mm, since it goes round the south end of the socket column; the two point-to-point data lines are 25 mm. So the series resistors are doing real work on the clocks and are insurance on the data lines.
 
-**43 Ω is the right series value.** With a 0.9 mm trace at 76 Ω and a CMOS output impedance of 25 to 40 Ω, the resistor that makes the source match is 36 to 51 Ω, and the shop has 43.2 Ω. R4 and R5 sit at the DAC end because they carry DIN over the BCK run, so they damp rather than source-match; those lines are about 15 and 37 mm, under the 61 mm critical length. The DIR9001 datasheet gives only a DC bound on its output drive, so tune on a scope at the far pad if the edges ring.
+**43 Ω is still the right series value.** With a 0.9 mm trace at 71 Ω and a CMOS output impedance of 25 to 40 Ω, the resistor that makes the source match is 31 to 46 Ω, and the shop has 43.2 Ω. R1 to R3 sit within 6 mm of the module pins on the DIR9001 side. R4 and R5 sit at the DAC end, because they carry DIN over the BCK trunk, so they damp rather than source-match. The DIR9001 datasheet gives only a DC bound on its output drive, so tune on a scope at the far pad if the edges ring.
 
-**Mill tolerance is not the problem people expect.** ±0.03 mm on both the trace and the gap, the ball mill's measured spread, moves Z0 by about ±2 Ω, and the FR4 permittivity spread over 4.2 to 4.6 moves it by under 2 Ω. What does vary is the pour: where the ground retreats from a trace the local impedance rises, so the number is a nominal, not a controlled-impedance spec.
+**The top-face supply runs do not cut the plane under a clock.** +5V runs parallel to LRCK's leg south for about 5 mm where it steps round C7, and crosses BCK, LRCK and the pot lane once each at right angles. +3V3 crosses only the module's own escapes. The ground pour beside each trace carries the return across those 2 mm gaps.
+
+**Mill tolerance is not the problem people expect.** ±0.03 mm on both the trace and the gap moves Z0 by about ±2 Ω, and the FR4 permittivity spread over 4.2 to 4.6 moves it by under 2 Ω.
 
 ## 6. Bring-up order
 
