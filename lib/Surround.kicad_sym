@@ -179,17 +179,17 @@
 					)
 				)
 			)
-			(pin input line
+			(pin bidirectional line
 				(at -20.32 10.16 0)
 				(length 2.54)
-				(name "IO35"
+				(name "IO33"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "7"
+				(number "9"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -200,14 +200,14 @@
 			(pin bidirectional line
 				(at -20.32 7.62 0)
 				(length 2.54)
-				(name "IO32"
+				(name "IO27"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "8"
+				(number "12"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -218,14 +218,14 @@
 			(pin bidirectional line
 				(at -20.32 5.08 0)
 				(length 2.54)
-				(name "IO33"
+				(name "IO32"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "9"
+				(number "8"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -323,17 +323,17 @@
 					)
 				)
 			)
-			(pin bidirectional line
+			(pin input line
 				(at -20.32 -10.16 0)
 				(length 2.54)
-				(name "IO27"
+				(name "IO35"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "12"
+				(number "7"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -434,14 +434,14 @@
 			(pin bidirectional line
 				(at 20.32 22.86 180)
 				(length 2.54)
-				(name "IO23"
+				(name "IO18"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "37"
+				(number "30"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -452,14 +452,14 @@
 			(pin bidirectional line
 				(at 20.32 20.32 180)
 				(length 2.54)
-				(name "IO19"
+				(name "IO17"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "31"
+				(number "28"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -470,14 +470,14 @@
 			(pin bidirectional line
 				(at 20.32 17.78 180)
 				(length 2.54)
-				(name "IO21"
+				(name "IO19"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "33"
+				(number "31"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -524,14 +524,14 @@
 			(pin bidirectional line
 				(at 20.32 10.16 180)
 				(length 2.54)
-				(name "IO18"
+				(name "IO16"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "30"
+				(number "27"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -632,14 +632,14 @@
 			(pin bidirectional line
 				(at 20.32 -5.08 180)
 				(length 2.54)
-				(name "IO17"
+				(name "IO23"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "28"
+				(number "37"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -650,14 +650,14 @@
 			(pin bidirectional line
 				(at 20.32 -7.62 180)
 				(length 2.54)
-				(name "IO16"
+				(name "IO21"
 					(effects
 						(font
 							(size 1.27 1.27)
 						)
 					)
 				)
-				(number "27"
+				(number "33"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -785,7 +785,7 @@
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "A"
-			(at 0 10.16 0)
+			(at 0 7.62 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -795,7 +795,7 @@
 			)
 		)
 		(property "Value" "DIR9001-Module"
-			(at 0 -10.16 0)
+			(at 0 -7.62 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -805,7 +805,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 0 -12.7 0)
+			(at 0 -10.16 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -826,7 +826,7 @@
 				)
 			)
 		)
-		(property "Description" "DIR9001 S/PDIF receiver breakout with TOSLINK"
+		(property "Description" "LHY AUDIO DIR9001-I2S board on its 6-wire pigtail"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -850,8 +850,8 @@
 		)
 		(symbol "DIR9001-Module_0_1"
 			(rectangle
-				(start -12.7 8.89)
-				(end 12.7 -8.89)
+				(start -12.7 6.35)
+				(end 12.7 -6.35)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -862,44 +862,8 @@
 			)
 		)
 		(symbol "DIR9001-Module_1_1"
-			(pin input line
-				(at -15.24 6.35 0)
-				(length 2.54)
-				(name "FMT0"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "9"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin input line
-				(at -15.24 3.81 0)
-				(length 2.54)
-				(name "FMT1"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "10"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
 			(pin power_in line
-				(at -15.24 1.27 0)
+				(at -15.24 3.81 0)
 				(length 2.54)
 				(name "VCC"
 					(effects
@@ -917,7 +881,7 @@
 				)
 			)
 			(pin power_in line
-				(at -15.24 -1.27 0)
+				(at -15.24 1.27 0)
 				(length 2.54)
 				(name "GND"
 					(effects
@@ -935,43 +899,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 6.35 180)
-				(length 2.54)
-				(name "AUDIO"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "8"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin output line
 				(at 15.24 3.81 180)
-				(length 2.54)
-				(name "ERROR"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-				(number "7"
-					(effects
-						(font
-							(size 1.27 1.27)
-						)
-					)
-				)
-			)
-			(pin output line
-				(at 15.24 1.27 180)
 				(length 2.54)
 				(name "DOUT"
 					(effects
@@ -989,7 +917,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 -1.27 180)
+				(at 15.24 1.27 180)
 				(length 2.54)
 				(name "LRCKO"
 					(effects
@@ -1007,7 +935,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 -3.81 180)
+				(at 15.24 -1.27 180)
 				(length 2.54)
 				(name "BCKO"
 					(effects
@@ -1025,7 +953,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 -6.35 180)
+				(at 15.24 -3.81 180)
 				(length 2.54)
 				(name "SCKO"
 					(effects

@@ -16,7 +16,7 @@ import pcbnew
 
 BANNED_PREFIX = ("DIR_BCK", "DIR_LRCK")
 BANNED_EXACT = {"Net-(A2-BCKO)", "Net-(A2-LRCKO)", "Net-(A2-DOUT)",
-                "Net-(U1-IO34)", "Net-(U1-IO19)", "Net-(U1-IO23)",
+                "Net-(U1-IO34)", "Net-(U1-IO17)", "Net-(U1-IO18)",
                 "Net-(A3-DIN)", "Net-(A4-DIN)",
                 "Net-(A3-OUTL)", "Net-(A3-OUTR)", "Net-(A4-OUTL)", "Net-(A4-OUTR)",
                 "Net-(J5-PadT)", "Net-(J5-PadR)", "Net-(J6-PadT)", "Net-(J6-PadR)"}

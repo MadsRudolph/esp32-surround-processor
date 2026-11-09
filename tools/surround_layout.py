@@ -113,19 +113,17 @@ sh.note((G(16), G(74)), "Signal chain  (TOSLINK -> DIR9001 clock recovery -> ESP
 
 EX, EY = G(140), G(108)                          # ESP32 origin
 esp = sh.place("Surround:ESP32-WROOM-32", "U1", at=(EX, EY), value="ESP32-WROOM-32", footprint="Surround:ESP32-WROOM-32_NoVias")
-DX, DY = G(40), G(99)
-dirm = sh.place("Surround:DIR9001-Module", "A2", at=(DX, DY), value="DIR9001 + TOSLINK", footprint="Connector_PinSocket_2.54mm:PinSocket_1x10_P2.54mm_Vertical")
+DX, DY = G(40), G(101)                           # DOUT level with IO34
+dirm = sh.place("Surround:DIR9001-Module", "A2", at=(DX, DY), value="DIR9001-I2S (pigtail)", footprint="Surround:DIR9001_Pigtail_1x6")
 
 # clock/data bus: DIR9001 -> 43R2 -> ESP32, in the order the pins meet on the PCB
-# (AUDIO, ERROR, DOUT, LRCK, BCK top to bottom). Both ends are 2.54 mm pitch, so the
+# (DOUT, LRCK, BCK top to bottom). Both ends are 2.54 mm pitch, so the
 # bus fans out to 5.08 mm through the resistor column and the values stay clear.
 RXS = {"R1": G(66), "R2": G(72), "R3": G(78)}    # staggered so ref/value texts never meet
 bus = [  # (dir pin, esp pin, ref/None, label, mid-row y, jog-out x, jog-back x)
-    ("AUDIO", "IO36/VP", None, None,       G(93), G(53), G(120)),
-    ("ERROR", "IO39/VN", None, None,       G(96), None,  None),
     ("DOUT",  "IO34",    "R3", None,       G(100), G(58), G(114)),
-    ("LRCKO", "IO35",    "R2", "DIR_LRCK", G(104), G(56), G(116)),
-    ("BCKO",  "IO32",    "R1", "DIR_BCK",  G(108), G(54), G(118)),
+    ("LRCKO", "IO33",    "R2", "DIR_LRCK", G(104), G(56), G(116)),
+    ("BCKO",  "IO27",    "R1", "DIR_BCK",  G(108), G(54), G(118)),
 ]
 for src, dst, ref, lab, my, xo, xb in bus:
     a, b = dirm.pin(src), esp.pin(dst)
@@ -148,19 +146,14 @@ sh.nc(dirm.pin("SCKO"))
 sh.note((G(30), G(85)), "Series source termination for the 76 R coplanar trace (tools/impedance.py):", size=1.27)
 sh.note((G(30), G(87)), "43R2 at every driver output (25-40 R CMOS source). Tune on a scope at the far pad.", size=1.27)
 
-# DIR9001 module straps and power
-fmt0, fmt1 = dirm.pin("FMT0"), dirm.pin("FMT1")
-sh.seg(fmt0, (G(24), fmt0.y)); sh.seg(fmt1, (G(24), fmt1.y))
-sh.seg((G(24), fmt0.y), (G(24), fmt1.y))
-sh.seg((G(24), fmt0.y), (G(20), fmt0.y))
-sh.label((G(20), fmt0.y), "+3V3", rot=180, kind="global")
+# DIR9001 module power
 vcc = dirm.pin("VCC")
 sh.seg(vcc, (G(20), vcc.y))
 sh.label((G(20), vcc.y), "+5V_DIR", rot=180, kind="global")
 dg = dirm.pin("GND")
 sh.seg(dg, (G(24), dg.y)); sh.gnd((G(24), dg.y))
-sh.note((G(28), G(114)), "FMT1=FMT0=H -> 24-bit I2S (DIR9001 Table 13). CKSEL=L, XTI=GND,", size=1.27)
-sh.note((G(28), G(116)), "PSCK=LL. Unlock: clocks free-run, DOUT mutes, ERROR=H.", size=1.27)
+sh.note((G(28), G(114)), "Module DIP switches: FMT1=FMT0=H -> 24-bit I2S (DIR9001 Table 13).", size=1.27)
+sh.note((G(28), G(116)), "ERROR/AUDIO not brought out: firmware watches LRCK and the data.", size=1.27)
 
 # ESP32 supply: bulk and bypass right at pin 2, per references/esp32.md
 p3 = esp.pin("3V3")
@@ -176,24 +169,24 @@ g1, g15, g38 = esp.pin("1"), esp.pin("15"), esp.pin("38")
 for g in (g1, g15, g38):
     sh.seg(g, (G(121), g.y))
 sh.seg((G(121), g1.y), (G(121), g38.y)); sh.gnd((G(121), g38.y))
-ad = esp.pin("IO33")
+ad = esp.pin("IO36/VP")
 sh.seg(ad, (G(121), ad.y)); sh.label((G(121), ad.y), "POT", rot=180, kind="global")
 en = esp.pin("EN")
 sh.seg(en, (G(118), en.y)); sh.label((G(118), en.y), "EN", rot=180, kind="global")
-for nm in ("IO25", "IO26", "IO27", "IO14", "IO12/MTDI", "IO13", "SD2/IO9", "SD3/IO10",
-           "IO22", "NC", "IO5", "IO17", "IO16", "IO2", "IO15/MTDO", "SD1/IO8", "SD0/IO7",
-           "CLK/IO6", "CMD/IO11"):
+for nm in ("IO25", "IO26", "IO35", "IO32", "IO14", "IO12/MTDI", "IO13", "SD2/IO9", "SD3/IO10",
+           "IO22", "NC", "IO5", "IO23", "IO21", "IO2", "IO15/MTDO", "SD1/IO8", "SD0/IO7",
+           "CLK/IO6", "CMD/IO11", "IO39/VN"):
     sh.nc(esp.pin(nm))
 sh.note((G(122), G(134)), "IO12 must float (flash 1.8 V strap). IO2/IO15 strapping, IO6-11 flash: NC. Centre pad 39 unsoldered.", size=1.27)
 sh.note((G(122), G(136)), "Wi-Fi/BT and DFS disabled in firmware; audio task in IRAM.", size=1.27)
 
 # ESP32 -> DACs
 D1X, D1Y = G(230), G(89)
-dac1 = sh.place("Surround:GY-PCM5102", "A3", at=(D1X, D1Y), value="PCM5102 FRONT", footprint="Surround:GY-PCM5102_Carrier_XSMT_S")
+dac1 = sh.place("Surround:GY-PCM5102", "A3", at=(D1X, D1Y), value="PCM5102 FRONT", footprint="Surround:PCM5102_Module_FaceDown")
 D2X, D2Y = G(230), G(117)
-dac2 = sh.place("Surround:GY-PCM5102", "A4", at=(D2X, D2Y), value="PCM5102 SURROUND", footprint="Surround:GY-PCM5102_Carrier_XSMT_N")
+dac2 = sh.place("Surround:GY-PCM5102", "A4", at=(D2X, D2Y), value="PCM5102 SURROUND", footprint="Surround:PCM5102_Module_FaceDown")
 
-din1, din2, xsmt_pin = esp.pin("IO19"), esp.pin("IO23"), esp.pin("IO21")
+din1, din2, xsmt_pin = esp.pin("IO17"), esp.pin("IO18"), esp.pin("IO19")
 r4 = sh.place("Device:R", "R4", at=(G(200), dac1.pin("DIN").y), rot=90, value="43R2", footprint=RFP)
 sh.seg(r4.pin(2), dac1.pin("DIN"))
 sh.seg(din1, (G(190), din1.y)); sh.seg((G(190), din1.y), (G(190), r4.pin(1).y))
@@ -219,7 +212,7 @@ for dac, pnet, rail_y in ((dac1, "+5V_DAC1", G(99)), (dac2, "+5V_DAC2", G(127)))
         pts.append(r11.pin(2))
     gnd_rail(sh, pts, rail_y, x_sym=G(216))
 sh.note((G(224), G(104)), "SCK=GND: 3-wire BCK-PLL mode. Module pads: FMT=L, FLT=L, DEMP=L,", size=1.27)
-sh.note((G(224), G(106)), "XSMT bridge removed and wired out. VIN = 5 V via on-board LDO.", size=1.27)
+sh.note((G(224), G(106)), "Modules face down on 1x6 + 1x9 sockets. XSMT jumper removed. VIN = 5 V via on-board LDO.", size=1.27)
 
 # front outputs: RCA
 o1l, o1r, ag1 = dac1.pin("OUTL"), dac1.pin("OUTR"), dac1.pin("AGND")
@@ -259,7 +252,7 @@ def stub(pin, x, net):
     """A short wire from a right-hand ESP32 pin to a global label."""
     sh.seg(pin, (x, pin.y)); sh.label((x, pin.y), net, kind="global")
 stub(esp.pin("IO0/BOOT"), G(164), "BOOT")
-stub(esp.pin("IO18"), G(164), "USER")
+stub(esp.pin("IO16"), G(164), "USER")
 stub(esp.pin("IO4"), G(164), "LED")
 stub(esp.pin("TXD0/IO1"), G(164), "TXD0")
 stub(esp.pin("RXD0/IO3"), G(164), "RXD0")

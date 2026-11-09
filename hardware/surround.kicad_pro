@@ -153,7 +153,7 @@
         "min_text_height": 0.8,
         "min_text_thickness": 0.08,
         "min_through_hole_diameter": 0.8,
-        "min_track_width": 0.5,
+        "min_track_width": 1.0,
         "min_via_annular_width": 0.3,
         "min_via_diameter": 1.6,
         "solder_mask_to_copper_clearance": 0.0,
@@ -584,23 +584,15 @@
       },
       {
         "netclass": "ESP",
-        "pattern": "Net-(A2-AUDIO)"
-      },
-      {
-        "netclass": "ESP",
-        "pattern": "Net-(A2-ERROR)"
-      },
-      {
-        "netclass": "ESP",
         "pattern": "Net-(U1-IO34)"
       },
       {
         "netclass": "ESP",
-        "pattern": "Net-(U1-IO19)"
+        "pattern": "Net-(U1-IO17)"
       },
       {
         "netclass": "ESP",
-        "pattern": "Net-(U1-IO23)"
+        "pattern": "Net-(U1-IO18)"
       },
       {
         "netclass": "ESP",

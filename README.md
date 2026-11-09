@@ -20,7 +20,9 @@ both ports -> 2x PCM5102A in 3-wire BCK-PLL mode -> line out.
 | `tools/make_symbols.py` / `make_footprints.py` | Generate the two libraries. |
 | `tools/surround_layout.py` | Generates `hardware/surround.kicad_sch`. The schematic is code; edit the script, not the file. |
 | `tools/pcb_bootstrap.py` | Netlist JSON -> board with footprints, nets, outline, mounting holes, GND pour, cnc-fine netclass. |
-| `tools/surround_board.py` | The floorplan and every track, as code. Its header explains the topology and the routing rules it enforces. |
+| `tools/surround_board.py` | The floorplan, routing lanes and silkscreen, as code. Its header explains the topology. |
+| `tools/octoroute.py` / `autoroute.py` | Single-layer octilinear router: 45-degree runs, no turn over 45 degrees, exact clearance. Follows the lanes in `surround_board.py`, then routes the rest. |
+| `tools/preview.sh` | Renders the board (copper + laser silk) to a PNG for a live preview. |
 | `tools/netclasses.py` | Stamps the track widths and net-class assignments into the project. |
 | `tools/impedance.py` | Coplanar-waveguide impedance of the traces, and the series termination it implies. |
 | `tools/wire_links.py` | Lists every wire link and fails if one lands on a net that may not be a wire. |
@@ -42,8 +44,8 @@ kicad-cli sch export pdf -o surround.pdf surround.kicad_sch
 kicad-cli sch export netlist --format kicadsexpr -o surround.net surround.kicad_sch
 python3 ~/.claude/skills/kicad-laser-pcb/scripts/pcb_netlist_json.py surround.net surround.json
 cd ..
-python3 tools/pcb_bootstrap.py 133x70
-python3 tools/kpy.py tools/surround_board.py     # placement, copper, pour
+python3 tools/pcb_bootstrap.py 103x69
+python3 tools/kpy.py tools/surround_board.py     # placement, copper, pour, GND links, silk
 kicad-cli pcb drc --severity-all hardware/surround.kicad_pcb
 python3 tools/kpy.py tools/wire_links.py hardware/surround.kicad_pcb
 python3 tools/kpy.py tools/build_notes.py hardware/surround.kicad_pcb
@@ -75,24 +77,22 @@ WROOM-32 has been cut on this bit. Cut `hardware/coupon` first.
 
 ## Routing rules
 
-`tools/surround_board.py` stops the build if any of these breaks:
+`tools/octoroute.py` builds them into every run it lays:
 
 - every segment is horizontal, vertical or exactly 45 degrees;
 - no run turns by more than 45 degrees;
-- every track leaving the ESP32 is 0.9 mm, the width of its pads.
+- every net with a pad on the ESP32 is 0.9 mm, the width of its pads.
 
 Where one trace branches off another it can still leave at a right angle, and two
 runs may meet at any angle on a pad.
 
-## The two wires
+## Wires and hand routing
 
-The board has two wire links, both short and both on ground. Everything else is on
-milled copper, including all the I2S and audio nets. There are no vias.
-
-- A3.2 to A3.6, 12 mm. A3.6, A4.2 and C3 sit between the two clock runs, and this
-  is their only DC path to the rest of the pour.
-- TP1 to TP2, 18 mm across the clocks. Without it the DIR9001's return runs about
-  150 mm round the board. TP1 and TP2 double as scope grounds.
+The clocks, the I2S data and the DAC outputs are all milled copper. The ground
+pour is split by the module-to-DAC bundle and the clock runs, so a few short
+ground links join its islands; the pocket between the DAC sockets is one of them.
+The router leaves a handful of power and slow nets for hand routing. Both lists
+are generated into `hardware/BUILD-NOTES.md`. There are no vias.
 
 A second copper layer as a ground plane would replace those wires. It would need
 isolation around every non-ground hole on top, ground pins soldered on both sides
@@ -101,13 +101,13 @@ trace impedance, because the plane changes it.
 
 ## Board concept
 
-A 133 x 70 mm single-sided board:
+A 103 x 69 mm single-sided board:
 
 - 9 V adapter on a screw terminal, 1N5817 reverse protection
 - LM7805 for the audio modules, with 10 R + 100 uF per module
 - LM317T at 3.27 V for the ESP32, 470 uF + 100 nF at pin 2, 1N4003 protection
-- ESP32-WROOM-32 on the milled side; Wi-Fi and Bluetooth stay off, so its antenna sits over bare FR4 inside the board
-- DIR9001 and two PCM5102 modules on pin sockets, on flying leads for XSMT and the outputs
+- ESP32-WROOM-32 on the milled side at the east edge, antenna pointing off the board, its keep-out starting exactly at the edge
+- DIR9001-I2S board off the carrier on its pigtail; two PCM5102 modules face down on a 1x6 and a 1x9 socket, so XSMT and the outputs are socketed too
 - 43.2 R series resistors at the driver end of every clock and data line
 - 10 k pull-down on XSMT so both DACs are muted through boot
 - RCA outputs for the fronts, impedance-balanced TRS (100 R tip / 100 R ring) for the surrounds, all panel-mount on screw terminals
@@ -120,8 +120,9 @@ Module straps are in `hardware/BUILD-NOTES.md`.
 - [x] Design review
 - [x] Schematic (ERC clean, netlist checked)
 - [x] Footprints, audited against the ball mill
-- [x] Placement and routing: 0 unconnected, 0 clearance errors, no vias, two short ground wires
-- [x] Production files
-- [ ] Measure the DAC modules and the DIR9001 module's pinout, adjust footprints if needed (`hardware/BUILD-NOTES.md`)
+- [x] Compact placement (103 x 69 mm), antenna off the edge, laser silkscreen
+- [ ] Finish hand routing (open nets in `hardware/BUILD-NOTES.md`)
+- [ ] Production files for this layout
+- [x] DAC modules measured; DIR9001 pinout from the seller's drawing
 - [ ] Cut and meter the WROOM coupon
 - [ ] Firmware (ESP-IDF v5.3, `driver/i2s_std.h`, liba52 for AC-3)

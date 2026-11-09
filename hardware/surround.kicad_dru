@@ -7,56 +7,44 @@
 # 0.50 mm (the `cnc-fine` profile). Full pads survive down to 0.44 mm. The ground
 # pour always keeps the full 0.50 mm.
 #
-# One footprint needs an exception: the WROOM-32 castellations sit 0.37 mm apart,
-# fixed by the module. The channel is wider than that, so one middle cut isolates
-# them and trims both pads ("Cut gaps too narrow" in the SRM-CAM ball mill profile).
-# No module has been cut on this bit yet: cut a coupon first. Next tightest is
-# 0.84 mm on the 2.54 mm socket rows, which needs no exception.
+# One footprint needs a copper exception: the WROOM-32 castellations sit 0.37 mm
+# apart, fixed by the module. The channel is wider than that, so one middle cut
+# isolates them and trims both pads ("Cut gaps too narrow" in the SRM-CAM ball mill
+# profile). No module has been cut on this bit yet: cut hardware/coupon first.
 
 (rule "U1_castellation_clearance"
 	(condition "A.memberOfFootprint('U1') && B.memberOfFootprint('U1')")
 	(constraint clearance (min 0.3mm)))
 
-# Keep FreeRouting's neck-downs out of the finished board.
-(rule "min_track_width"
-	(condition "A.type == 'track'")
-	(constraint track_width (min 0.5mm)))
-
-# R18 runs alongside the DAC1 socket and R4 starts beside it. Their courtyards touch
-# by 0.5 mm; the bodies clear by 1.9 mm, and the part spacing is fixed by BCK.
-(rule "R18_beside_R4"
-	(condition "A.Reference == 'R4' && B.Reference == 'R18'")
-	(constraint courtyard_clearance (min 0mm))
-	(severity ignore))
-
-# R10 lands on U1 pin 26 and stands between the two buttons' east pads. The button
-# bodies stop at their leads; the resistor body clears them by 0.3 mm.
-(rule "R10_beside_buttons"
-	(condition "A.Reference == 'R10' && (B.Reference == 'SW2' || B.Reference == 'SW3')")
-	(constraint courtyard_clearance (min 0mm))
-	(severity ignore))
-
-# Tracks leaving the castellations start at the pads' own width and pitch, so they
-# keep the pads' 0.37 mm gap until they fan out. Same single middle cut as the pads.
+# Tracks leaving the castellations start at the pads' own pitch, so they keep the
+# pads' 0.37 mm gap until they fan out. Same single middle cut as the pads. The
+# U1_escape rule areas end where tools/octoroute.py stops relaxing the rule.
 (rule "U1_escape_clearance"
 	(condition "A.Type != 'Zone' && B.Type != 'Zone' && A.intersectsArea('U1_escape') && B.intersectsArea('U1_escape')")
 	(constraint clearance (min 0.3mm)))
 
-# Screw terminals stack: neighbouring blocks butt together on the 5.08 mm pitch.
+(rule "min_track_width"
+	(condition "A.type == 'track'")
+	(constraint track_width (min 0.5mm)))
+
+# The rest are courtyard touches, each checked against the real parts.
+
+# Screw terminals stack along the west edge: neighbouring blocks butt together.
 (rule "stacked_terminals"
-	(condition "(A.Reference == 'J3' && B.Reference == 'J4') || (A.Reference == 'J5' && B.Reference == 'J6')")
+	(condition "(A.Reference == 'J3' && B.Reference == 'J4') || (A.Reference == 'J5' && B.Reference == 'J6') || (A.Reference == 'J3' && B.Reference == 'J6') || (A.Reference == 'J6' && B.Reference == 'J3')")
 	(constraint courtyard_clearance (min 0mm))
 	(severity ignore))
 
-# R14 lands on A2 pin 9 just below the RESET button's lower pads. Clear by 0.3 mm.
-(rule "R14_below_reset"
-	(condition "A.Reference == 'R14' && B.Reference == 'SW1'")
+# R18 carries +5V_DAC2 into the pocket between the DAC sockets, beside the socket
+# column, R4 and C3's can. Courtyards meet; the leads clear by 0.5 mm or more.
+(rule "R18_in_the_pocket"
+	(condition "(A.Reference == 'R18' || B.Reference == 'R18') && (A.Reference == 'A3' || B.Reference == 'A3' || A.Reference == 'R4' || B.Reference == 'R4' || A.Reference == 'C3' || B.Reference == 'C3')")
 	(constraint courtyard_clearance (min 0mm))
 	(severity ignore))
 
-# Three more pairs where the footprint margins touch but the parts do not: the RESET
-# button between C11 and the DIR9001 socket, and R11 lying alongside R4.
-(rule "tight_but_clear"
-	(condition "(A.Reference == 'SW1' && (B.Reference == 'C11' || B.Reference == 'A2')) || (A.Reference == 'R4' && B.Reference == 'R11')")
+# The status LED and its resistor stand between the USER and BOOT buttons.
+# Courtyards meet; the bodies clear by about 1 mm.
+(rule "led_between_buttons"
+	(condition "(A.Reference == 'D1' || A.Reference == 'R10' || B.Reference == 'D1' || B.Reference == 'R10') && (A.Reference == 'SW2' || A.Reference == 'SW3' || B.Reference == 'SW2' || B.Reference == 'SW3')")
 	(constraint courtyard_clearance (min 0mm))
 	(severity ignore))

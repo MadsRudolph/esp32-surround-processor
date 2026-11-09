@@ -24,8 +24,8 @@ from pathlib import Path
 
 PRO = Path(__file__).resolve().parents[1] / "hardware/surround.kicad_pro"
 
-ESP = ["DIR_BCK", "DIR_LRCK", "Net-(A2-AUDIO)", "Net-(A2-ERROR)", "Net-(U1-IO34)",
-       "Net-(U1-IO19)", "Net-(U1-IO23)", "XSMT", "POT", "EN", "BOOT", "USER", "LED",
+ESP = ["DIR_BCK", "DIR_LRCK", "Net-(U1-IO34)",
+       "Net-(U1-IO17)", "Net-(U1-IO18)", "XSMT", "POT", "EN", "BOOT", "USER", "LED",
        "TXD0", "RXD0", "+3V3"]
 I2S = ["Net-(A2-BCKO)", "Net-(A2-LRCKO)", "Net-(A2-DOUT)", "Net-(A3-DIN)", "Net-(A4-DIN)"]
 ANALOG = ["Net-(A3-OUTL)", "Net-(A3-OUTR)", "Net-(A4-OUTL)", "Net-(A4-OUTR)",

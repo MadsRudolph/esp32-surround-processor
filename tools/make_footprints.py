@@ -42,7 +42,7 @@ def pad(num, x, y, size=(1.7, 1.7), drill=1.0, shape="circle"):
             f'\t\t(drill {drill:g})\n\t\t(layers "*.Cu" "*.Mask")\n\t\t(remove_unused_layers no)\n\t)\n')
 
 
-def footprint(name, descr, body, ref_y, val_y, crt, fab, extra=""):
+def footprint(name, descr, body, ref_y, val_y, crt, fab, extra="", silk_box=True):
     (x1, y1, x2, y2) = crt
     s = [f'(footprint "{name}"\n\t(version 20260206)\n\t(generator "make_footprints")\n\t(layer "F.Cu")\n'
          f'\t(descr "{descr}")\n\t(attr through_hole)\n']
@@ -52,7 +52,8 @@ def footprint(name, descr, body, ref_y, val_y, crt, fab, extra=""):
     s.append(prop("Description", descr, 0, 0, "F.Fab", hide=True))
     s.append(rect(x1, y1, x2, y2, "F.CrtYd"))
     s.append(rect(*fab, "F.Fab", 0.1))
-    s.append(rect(*fab, "F.SilkS", 0.12))
+    if silk_box:
+        s.append(rect(*fab, "F.SilkS", 0.12))
     s.append(extra)
     s.append(body)
     s.append(")\n")
@@ -60,35 +61,65 @@ def footprint(name, descr, body, ref_y, val_y, crt, fab, extra=""):
     print("wrote", name)
 
 
-# ---------------------------------------------------------------- GY-PCM5102 carrier
-# Module lying along x, header column at the local west edge. Column: the 1x6
-# socket for the module header (VIN GND LCK DIN BCK SCK = pads 1-6). East column:
-# wire pads for the module's L / R / GND output pads (8-10) at 5.08 mm. Pad 7 is
-# the flying lead from the module's XSMT pad; it sits well clear of the column,
-# 10 mm beyond it on the routing side, so XSMT does not have to enter the column
-# with the clocks, and its position differs between the two DACs so both land in
-# the same pocket of copper.
+# ---------------------------------------------------------------- PCM5102A module
+# The purple PCM5102A board, measured under the microscope (2026-11-09): 31.0 x
+# 17.1 mm. A 1x6 column on one short edge, pin centres 0.88 mm in (VIN GND LCK DIN
+# BCK SCK), and a 1x9 row along one long edge, 1.9 mm in, starting 6.49 mm from the
+# column: FLT DEMP XSMT FMT A3V3 AGND ROUT AGND LOUT. Both rows are 2.54 mm
+# sockets, so nothing is wired by hand.
 #
-# The 32 x 24 mm outline on F.Fab is a RESERVATION, not a measurement: the largest
-# figure sellers quote for this board, with the header 3 mm inside one end. Nobody
-# has measured the AYWHP module yet. Check against the module before cutting. The
-# courtyard covers only the socket, because low parts sit under the module on its
-# 8.5 mm socket; tools/surround_board.py checks tall parts against the outline.
-def dac_footprint(name, xsmt_y):
-    body = []
-    for i in range(6):
-        body.append(pad(str(1 + i), -13.0, -6.35 + i * pitch, shape="rect" if i == 0 else "oval"))
-    body.append(pad("7", -23.0, xsmt_y, size=(2.0, 2.0), drill=1.0))
-    for i, n in enumerate(("8", "9", "10")):
-        body.append(pad(n, 13.0, -5.08 + i * 5.08, size=(2.2, 2.2), drill=1.1))
-    extra = text("VIN", -13.0, -8.6, size=0.7) + text("SCK", -13.0, 8.3, size=0.7) + text("XSMT", -23.0, xsmt_y + 2.4, size=0.7)
-    extra += "".join(text(t, 15.6, -5.08 + i * 5.08, size=0.7) for i, t in enumerate(["L", "R", "AGND"]))
-    footprint(name, "PCM5102 DAC module on a 1x6 socket plus wire pads (XSMT; OUTL, OUTR, AGND); 32 x 24 mm reserved, unmeasured",
-              "".join(body), -13.5, 13.5, (-14.35, -7.9, -11.65, 7.9), (-16.0, -12.0, 16.0, 12.0), extra)
+# The module sits FACE DOWN, components towards the carrier: that is the hand that
+# keeps VIN north of SCK as drawn here, which the clock routing is built around.
+# Seen from above, column at local west, VIN north, the 1x9 row runs along the
+# south edge and the 3.5 mm jack overhangs the north edge at the far end.
+# On 8.5 mm sockets plus the header's 2.5 mm spacer the jack bottom is ~5 mm up;
+# tools/surround_board.py keeps the tall parts out from under body and jack.
+# FLT, DEMP, FMT and A3V3 are left open: the module's own H1-H4 jumpers set them.
+# The XSMT jumper is removed so the ESP32 drives it.
+DAC_ROW = ("FLT", "DEMP", "7", "FMT", "A3V3", "10", "9", "10", "8")
+DAC_COL_X, DAC_ROW_Y, DAC_ROW_X0 = -13.0, 6.74, -13.0 + 6.49
+DAC_BODY = (-13.88, -8.62, 17.08, 8.49)
+DAC_JACK = (7.67, -14.1, 17.08, -8.62)       # overhang assumed 5.5 mm: not measured
+
+
+def dac_footprint(name):
+    body = [pad(str(1 + i), DAC_COL_X, -6.35 + i * pitch, shape="rect" if i == 0 else "oval")
+            for i in range(6)]
+    body += [pad(n, DAC_ROW_X0 + k * pitch, DAC_ROW_Y, shape="oval")
+             for k, n in enumerate(DAC_ROW)]
+    extra = text("VIN", DAC_COL_X + 1.9, -6.35, size=0.7) + text("SCK", DAC_COL_X + 1.9, 6.35, size=0.7)
+    extra += "".join(text(t, DAC_ROW_X0 + k * pitch, DAC_ROW_Y - 1.7, size=0.6)
+                     for k, t in enumerate(["FLT", "DMP", "XSMT", "FMT", "3V3", "AG", "R", "AG", "L"]))
+    extra += text("FACE DOWN", 3.0, 0.0, size=1.0)
+    extra += rect(*DAC_JACK, "F.Fab", 0.1) + text("jack", 12.4, -11.4, size=0.8)
+    # courtyard: the two socket strips; the module itself floats over low parts
+    extra += rect(DAC_ROW_X0 - 1.1, DAC_ROW_Y - 1.1, DAC_ROW_X0 + 8 * pitch + 1.1, DAC_ROW_Y + 1.1, "F.CrtYd")
+    # silk: the module's outline on the three sides away from the socket column, so
+    # the laser never marks a pad
+    x0, y0, x1, y1 = DAC_BODY
+    for (ax, ay, bx, by) in ((x0 + 1.4, y0, x1, y0), (x0 + 1.4, y1, x1, y1), (x1, y0, x1, y1)):
+        extra += (f'\t(fp_line\n\t\t(start {ax:g} {ay:g})\n\t\t(end {bx:g} {by:g})\n'
+                  f'\t\t(stroke\n\t\t\t(width 0.15)\n\t\t\t(type default)\n\t\t)\n\t\t(layer "F.SilkS")\n\t)\n')
+    footprint(name, "PCM5102A module, face down on a 1x6 and a 1x9 socket; measured 31.0 x 17.1 mm",
+              "".join(body), -10.0, 10.0, (-14.35, -7.9, -11.65, 7.9), DAC_BODY, extra, silk_box=False)
 
 pitch = 2.54
-dac_footprint("GY-PCM5102_Carrier_XSMT_S", 10.0)     # lower DAC: rotated, pad lands north of it
-dac_footprint("GY-PCM5102_Carrier_XSMT_N", -10.0)    # upper DAC: rotated, pad lands south of it
+dac_footprint("PCM5102_Module_FaceDown")
+
+
+# ---------------------------------------------------------------- DIR9001 pigtail
+# The LHY AUDIO DIR9001-I2S board sits off the carrier; its 6-wire JST-XH pigtail
+# (bare tinned ends) is soldered into these holes. Pad numbers keep the old 1x10
+# socket's 1-6 so the routing is unchanged; silk names the wire, as the module's
+# I2S-OUT labels it.
+# Nearly the order of the module's I2S-OUT connector and its pigtail (DATA BCLK LRCK
+# MCLK +5V GND): only BCLK and LRCK swap, so the clocks reach the carrier in the
+# order the DAC column needs them. Cross those two wires.
+DIR_PADS = [("6", "DATA"), ("5", "LRCK"), ("4", "BCLK"), ("3", "MCLK"), ("1", "+5V"), ("2", "GND")]
+body = "".join(pad(n, 0.0, i * pitch, shape="rect" if n == "1" else "circle") for i, (n, _) in enumerate(DIR_PADS))
+extra = "".join(text(t, -2.6, i * pitch, layer="F.SilkS", size=0.8) for i, (_, t) in enumerate(DIR_PADS))
+footprint("DIR9001_Pigtail_1x6", "Six solder holes for the DIR9001-I2S board's XH pigtail: +5V GND MCLK BCLK LRCK DATA",
+          body, -2.2, 15.0, (-1.15, -1.15, 1.15, 13.85), (-1.0, -1.0, 1.0, 13.7), extra)
 
 # ---------------------------------------------------------------- terminal blocks
 # Vendored bornier-2 / -3 (KiCad 10 dropped them) with pad numbers renamed to
