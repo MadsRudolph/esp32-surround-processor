@@ -3,7 +3,7 @@
 Generated from `hardware/surround.kicad_pcb` by `tools/build_notes.py`.
 Do not edit by hand; re-run the tool after any change to the board.
 
-The board is 101.9 x 71.1 mm, copper on both faces, no vias and no wire links.
+The board is 101.9 x 73.2 mm, copper on both faces, no vias and no wire links.
 
 ## Before cutting
 
@@ -69,7 +69,7 @@ and solder it on both faces.
 
 | Net | Length | Route |
 |---|---:|---|
-| `+3V3` | 66 mm | from C9 over the module to R16, then up to R15 |
+| `+3V3` | 64 mm | from C9 over the module to R16, then up to R15 |
 | `+5V` | 39 mm | from R19 up the east side of the DAC parts to C7, R18 and R17 |
 
 Everything else on the top is ground. No clock, data or audio net leaves the bottom face.

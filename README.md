@@ -41,6 +41,17 @@ python3 tools/make_footprints.py     # only after a footprint change
 tools/build.sh                       # schematic, ERC, board, DRC, connectivity, notes, production
 ```
 
+**The board file now carries hand edits** made in the PCB editor after the scripted
+build: rounded outline, chamfered track corners, C9 turned. `tools/build.sh` rebuilds
+the board from code and would discard them. After a hand change, re-export and
+re-check without rebuilding:
+
+```bash
+tools/export_production.sh hardware/surround.kicad_pcb hardware/production
+python3 tools/kpy.py tools/check_board.py hardware/surround.kicad_pcb
+python3 tools/kpy.py tools/build_notes.py hardware/surround.kicad_pcb
+```
+
 The layout script uses the `kicad-schematic` skill's drawing DSL
 (`~/.claude/skills/kicad-schematic/scripts`).
 
@@ -96,7 +107,7 @@ BCK close a loop, the power LED between the two data lines, C9 under module pin 
 
 ## Board concept
 
-A 101.9 x 71.1 mm double-sided board, parts on a 1.27 mm grid:
+A 101.9 x 73.3 mm double-sided board, parts on a 1.27 mm grid:
 
 - west edge: RCA and TRS outputs on screw terminals, the first terminal of each DAC
   level with that DAC's output row

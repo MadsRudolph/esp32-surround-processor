@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Production files for the mill (Gerber + Excellon, both faces) and the laser
+# Production files for the mill (Gerber + Excellon, both faces, plus the top silkscreen
+# and solder-mask Gerbers that SRM-CAM turns into laser DXFs) and the laser
 # (silkscreen DXF, top face).
 #
 #   tools/export_production.sh hardware/surround.kicad_pcb hardware/production
@@ -12,7 +13,7 @@ quiet() { "$@" 2>&1 >/dev/null | grep -v "Debug:" >&2 || true; }
 PCB=$1
 OUT=$2
 B=$(basename "$PCB" .kicad_pcb)
-LAYERS=${3:-F.Cu,B.Cu,Edge.Cuts}
+LAYERS=${3:-F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,Edge.Cuts}
 rm -rf "$OUT/gerbers"
 mkdir -p "$OUT/gerbers"
 quiet kicad-cli pcb export gerbers -l "$LAYERS" -o "$OUT/gerbers/" "$PCB"

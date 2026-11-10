@@ -5,7 +5,7 @@
       "Application": "Pcbnew",
       "Version": "10.0.7"
     },
-    "CreationDate": "2026-11-09T23:51:13+01:00"
+    "CreationDate": "2026-11-10T07:36:24+01:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
@@ -15,7 +15,7 @@
     },
     "Size": {
       "X": 101.98,
-      "Y": 71.22
+      "Y": 73.35
     },
     "LayerNumber": 2,
     "BoardThickness": 1.6,
@@ -42,6 +42,21 @@
       "Path": "surround-B_Cu.gbl",
       "FileFunction": "Copper,L2,Bot",
       "FilePolarity": "Positive"
+    },
+    {
+      "Path": "surround-F_Silkscreen.gto",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "surround-F_Mask.gts",
+      "FileFunction": "SolderMask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "surround-B_Mask.gbs",
+      "FileFunction": "SolderMask,Bot",
+      "FilePolarity": "Negative"
     },
     {
       "Path": "surround-Edge_Cuts.gm1",
