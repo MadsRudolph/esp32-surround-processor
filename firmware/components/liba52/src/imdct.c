@@ -1,4 +1,14 @@
 /*
+ * MODIFIED FILE. This is liba52/imdct.c from a52dec 0.7.4, changed on 2026-11-12 by
+ * Mads Rudolph for the esp32-surround-processor project. The change: the temporaries
+ * in ifft2(), ifft4(), ifft8() and ifft_pass() that were declared double are
+ * declared sample_t (float), because the ESP32 has no
+ * double-precision FPU. Nothing else is changed. The other files of liba52 here are
+ * unmodified. Distributed under the GNU General Public License, version 2 or (at your
+ * option) any later version, as the original notice below says; see ../COPYING.
+ */
+
+/*
  * imdct.c
  * Copyright (C) 2000-2002 Michel Lespinasse <walken@zoy.org>
  * Copyright (C) 1999-2000 Aaron Holtzman <aholtzma@ess.engr.uvic.ca>

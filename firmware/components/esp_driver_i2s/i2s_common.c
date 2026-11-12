@@ -4,6 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * MODIFIED FILE. This is esp_driver_i2s/i2s_common.c from ESP-IDF v5.5, changed on
+ * 2026-11-12 by Mads Rudolph for the esp32-surround-processor project. The change:
+ * in the legacy (non-GDMA) interrupt handlers i2s_dma_rx_callback() and
+ * i2s_dma_tx_callback(), each handler now reads and clears only its own direction's
+ * interrupt flags. The original cleared every pending flag, so in full duplex on the
+ * ESP32 the RX and TX handlers erased each other's EOF events and DMA buffers were
+ * lost. The changed places are marked "LOCAL FIX". All other files in this directory
+ * are unmodified copies. Licensed under the Apache License 2.0, see LICENSE here.
+ */
+
 #include <string.h>
 #include <stdbool.h>
 

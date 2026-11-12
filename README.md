@@ -204,3 +204,24 @@ format, levels and decoder health live, and has a per-speaker test (chime or sin
 - [x] Firmware: stereo matrix and Dolby Digital 5.1, tested with the TV on four speakers
 - [ ] The XSMT mute line does not mute the DAC modules (their own strap is probably still fitted); mute is done in the data
 - [ ] Own AC-3 decoder in place of liba52
+
+## Licence
+
+Copyright (C) 2026 Mads Rudolph. The firmware, the tools and the hardware design files
+are free software under the **GNU General Public License, version 3 or (at your option)
+any later version**; see `LICENSE`. They come with no warranty.
+
+Two parts are other people's work and keep their own licences:
+
+- `firmware/components/liba52/`: liba52 from a52dec 0.7.4, (C) Aaron Holtzman and Michel
+  Lespinasse, GPL version 2 or later (`COPYING` in that folder). One file is changed, with a
+  notice at its top.
+- `firmware/components/esp_driver_i2s/`: the I2S driver from ESP-IDF v5.5, (C) Espressif
+  Systems, Apache License 2.0 (`LICENSE` in that folder). One file is changed, with a notice
+  at its top.
+
+The firmware links both with ESP-IDF (Apache 2.0), which is why the whole is GPL version 3:
+that is the GPL version compatible with the Apache licence.
+
+"Dolby" and "Dolby Digital" are trademarks of Dolby Laboratories. This project is not made,
+tested or endorsed by Dolby.
