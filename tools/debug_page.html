@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board debug</title>
+<style>
+:root {
+  --bg: #0d1014; --panel: #161a20; --panel2: #1c2129; --line: #2a313b; --grid: #232a33;
+  --text: #e8edf2; --muted: #98a4b0; --dim: #66717d;
+  --l: #ff9f43; --r: #4dabf7; --pass: #3fb950; --fail: #f85149; --warn: #e3b341;
+  --mono: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 22px; margin: 0; }
+header a { color: var(--r); text-decoration: none; font-size: 16px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); font-size: 15px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--dim); }
+.spacer { flex: 1; }
+main { max-width: 1100px; margin: 0 auto; padding: 18px 16px 50px; display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.card h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.c4 { grid-column: span 4; } .c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+@media (max-width: 800px) { .c4, .c6, .c8 { grid-column: span 12; } }
+.big { font-family: var(--mono); font-size: 40px; font-weight: 700; line-height: 1.1; }
+.unit { font-size: 20px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+.sub { color: var(--muted); font-size: 15px; margin-top: 6px; }
+.state { display: inline-block; padding: 3px 12px; border-radius: 7px; font-weight: 700; font-size: 16px; margin-top: 8px; }
+.s-ok { background: #173d24; color: var(--pass); } .s-bad { background: #45201f; color: var(--fail); } .s-warn { background: #40351a; color: var(--warn); }
+.meter { display: grid; grid-template-columns: 26px 1fr 96px; align-items: center; gap: 12px; margin: 10px 0; }
+.meter .name { font-weight: 700; font-size: 19px; }
+.bar { position: relative; height: 26px; background: #0f1318; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.bar .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; transition: width .25s linear; }
+.bar .hold { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--text); left: 0; transition: left .25s linear; }
+.bar .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--grid); }
+.val { font-family: var(--mono); font-size: 19px; text-align: right; }
+.scale { display: grid; grid-template-columns: 26px 1fr 96px; gap: 12px; color: var(--dim); font-size: 13px; font-family: var(--mono); }
+.scale div.s { position: relative; height: 16px; }
+.scale span { position: absolute; transform: translateX(-50%); }
+canvas { width: 100%; height: 200px; display: block; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 5px 0; } td:last-child { text-align: right; font-family: var(--mono); }
+td:first-child { color: var(--muted); }
+.hint { color: var(--muted); font-size: 15px; }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btns button { font: inherit; font-weight: 600; color: var(--text); background: #2a3340; border: 1px solid #3a4553; border-radius: 9px; padding: 10px 18px; cursor: pointer; }
+.btns button:hover { background: #344050; }
+.btns button.active { background: #1f6f3a; border-color: #2c8a4c; }
+.btns button.off { background: #45201f; border-color: #7a2a28; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Board debug</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="conn">connecting</span></span>
+  <span class="spacer"></span>
+  <a href="/wiring">Speaker wiring guide</a>
+  <a href="/">&larr; back to the bench</a>
+</header>
+<main>
+  <section class="card c4">
+    <h2>Digital input</h2>
+    <div class="big"><span id="fs">--</span><span class="unit">Hz</span></div>
+    <div class="state s-warn" id="lock">waiting</div>
+    <div class="sub" id="locknote"></div>
+  </section>
+
+  <section class="card c4">
+    <h2>Volume pot (J7)</h2>
+    <div class="big"><span id="gaindb">--</span><span class="unit">dB</span></div>
+    <div class="bar" style="margin-top:12px"><div class="fill" id="potfill" style="background:var(--pass)"></div></div>
+    <div class="sub">raw <span class="mono" id="pot">--</span> of 4095 &middot; gain &times;<span id="gain">--</span></div>
+  </section>
+
+  <section class="card c4">
+    <h2>Output</h2>
+    <div class="state s-warn" id="mute" style="font-size:24px; margin-top:0">--</div>
+    <div class="sub" id="outnote"></div>
+    <div class="sub">Mode: <b id="mode" style="color:var(--text)">--</b></div>
+    <div class="sub">USER toggles mute. BOOT steps the mode: surround, stereo on all four, front only.</div>
+  </section>
+
+  <section class="card c12">
+    <h2>Speaker test <span style="text-transform:none;letter-spacing:0;font-weight:400">&nbsp;a test sound on one output only, the input is ignored</span></h2>
+    <div class="btns" id="testbtns">
+      <button data-test="fl">Front left</button>
+      <button data-test="fr">Front right</button>
+      <button data-test="sl">Surround left</button>
+      <button data-test="sr">Surround right</button>
+      <button data-test="all">All four</button>
+      <button data-test="off" class="off">Stop test</button>
+    </div>
+    <div class="btns" style="margin-top:12px">
+      <span class="hint">Sound:</span>
+      <button data-sound="chime">Chime</button>
+      <button data-sound="sweep">Sine sweep, 100 Hz to 10 kHz</button>
+      <span class="mono" id="sweephz" style="font-size:26px;font-weight:700;margin-left:10px"></span>
+    </div>
+    <div class="hint" id="testnote" style="margin-top:10px">The test follows the volume pot and is silent while the board is muted.</div>
+    <div class="btns" style="margin-top:14px">
+      <span class="hint">Board:</span>
+      <button id="btnmute">Mute / unmute</button>
+      <span class="hint" style="margin-left:14px">Mode:</span>
+      <button data-mode="0">Surround</button>
+      <button data-mode="1">Stereo on all four</button>
+      <button data-mode="2">Front only</button>
+    </div>
+    <div class="btns" style="margin-top:14px">
+      <span class="hint">Data line drive (click hunting):</span>
+      <button data-drive="0">Weakest</button>
+      <button data-drive="1">Weak</button>
+      <button data-drive="2">Normal</button>
+      <button data-drive="3">Strong</button>
+    </div>
+  </section>
+
+  <section class="card c12">
+    <h2>Input level, peak per second (before the volume pot)</h2>
+    <div class="meter"><div class="name" style="color:var(--l)">L</div>
+      <div class="bar" id="barL"><div class="fill" style="background:var(--l)"></div><div class="hold"></div></div>
+      <div class="val" id="valL">--</div></div>
+    <div class="meter"><div class="name" style="color:var(--r)">R</div>
+      <div class="bar" id="barR"><div class="fill" style="background:var(--r)"></div><div class="hold"></div></div>
+      <div class="val" id="valR">--</div></div>
+    <div class="meter" id="rowS"><div class="name" style="color:var(--pass)">S</div>
+      <div class="bar" id="barS"><div class="fill" style="background:var(--pass)"></div><div class="hold"></div></div>
+      <div class="val" id="valS">--</div></div>
+    <div class="scale"><div></div><div class="s" id="scale"></div><div style="text-align:right">dBFS</div></div>
+    <canvas id="hist"></canvas>
+    <div class="hint">S (green) is what goes to the rear speakers. On stereo sound it is the matrix signal, 0.5 &times; (L &minus; R) after its filters and delay. On Dolby Digital it is the louder of the two real rear channels, and L and R are the decoded fronts. Last two minutes. White marks on the bars hold the highest peak of the last 10 s. 0 dBFS is digital full scale.</div>
+  </section>
+
+  <section class="card c6">
+    <h2>Audio path health</h2>
+    <table>
+      <tr><td>Read timeouts (no clock from the DIR9001)</td><td id="rdto">--</td></tr>
+      <tr><td>Write errors (DAC side)</td><td id="wrerr">--</td></tr>
+      <tr><td>Since this page opened</td><td id="delta">--</td></tr>
+      <tr><td>Dolby Digital frames decoded</td><td id="ddframes">--</td></tr>
+      <tr><td>Dolby errors / dropped / underruns</td><td id="dderr">--</td></tr>
+      <tr><td>Dolby decode time, average / worst (32 ms budget)</td><td id="ddms">--</td></tr>
+    </table>
+  </section>
+
+  <section class="card c6">
+    <h2>Board</h2>
+    <table>
+      <tr><td>Firmware</td><td id="proj">--</td></tr>
+      <tr><td>Built</td><td id="built">--</td></tr>
+      <tr><td>Running from</td><td id="part">--</td></tr>
+      <tr><td>Uptime</td><td id="up">--</td></tr>
+      <tr><td>Free memory</td><td id="heap">--</td></tr>
+      <tr><td>Address</td><td id="host">--</td></tr>
+    </table>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const MIN_DB = -72;
+const pos = db => Math.max(0, Math.min(100, (db - MIN_DB) / -MIN_DB * 100));
+const RATES = [32000, 44100, 48000, 88200, 96000];
+const hist = [];                 // {t, l, r, ok}
+const holds = { L: [], R: [], S: [] };
+let first = null, misses = 0;
+
+// scale and ticks
+for (const db of [-60, -48, -36, -24, -12, 0]) {
+  const s = document.createElement("span"); s.style.left = pos(db) + "%"; s.textContent = db; $("scale").append(s);
+  for (const id of ["barL", "barR", "barS"]) { const t = document.createElement("div"); t.className = "tick"; t.style.left = pos(db) + "%"; $(id).prepend(t); }
+}
+
+function meter(ch, db) {
+  const bar = $("bar" + ch), now = Date.now();
+  bar.querySelector(".fill").style.width = pos(db) + "%";
+  const h = holds[ch]; h.push({ t: now, db });
+  while (h.length && now - h[0].t > 10000) h.shift();
+  bar.querySelector(".hold").style.left = `calc(${pos(Math.max(...h.map(x => x.db)))}% - 2px)`;
+  $("val" + ch).textContent = db <= -139 ? "silent" : db.toFixed(1) + " dB";
+}
+
+function fmtUp(s) {
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return (h ? h + " h " : "") + (h || m ? m + " min " : "") + (s % 60) + " s";
+}
+
+function draw() {
+  const c = $("hist"), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement);
+  const span = 120000, now = Date.now(), padL = 38;
+  const x = t => padL + (w - padL) * (1 - (now - t) / span);
+  const y = db => 6 + (h - 12) * (1 - (Math.max(MIN_DB, db) - MIN_DB) / -MIN_DB);
+  g.font = "12px ui-monospace, monospace"; g.fillStyle = css.getPropertyValue("--dim"); g.strokeStyle = css.getPropertyValue("--grid"); g.lineWidth = 1;
+  for (const db of [-60, -48, -36, -24, -12, 0]) { g.beginPath(); g.moveTo(padL, y(db)); g.lineTo(w, y(db)); g.stroke(); g.fillText(db, 4, y(db) + 4); }
+  for (const [k, col] of [["l", "--l"], ["r", "--r"], ["s", "--pass"]]) {
+    g.strokeStyle = css.getPropertyValue(col); g.lineWidth = 2; g.beginPath();
+    let pen = false;
+    for (const p of hist) { if (!p.ok || p[k] === undefined) { pen = false; continue; } const X = x(p.t), Y = y(p[k]); pen ? g.lineTo(X, Y) : g.moveTo(X, Y); pen = true; }
+    g.stroke();
+  }
+}
+
+async function tick() {
+  let d = null;
+  try { d = await (await fetch("/api/board", { cache: "no-store" })).json(); } catch (e) { d = { ok: false, error: "bench server not answering" }; }
+  const now = Date.now();
+  if (!d.ok) {
+    misses++;
+    $("dot").style.background = "var(--fail)";
+    $("conn").textContent = "board not answering" + (d.host ? " at " + d.host : "");
+    hist.push({ t: now, ok: false });
+  } else {
+    misses = 0;
+    const b = d.board, a = b.app || {};
+    $("dot").style.background = "var(--pass)"; $("conn").textContent = "live, " + d.host;
+    $("host").textContent = d.host; $("proj").textContent = b.project + " " + b.version; $("built").textContent = b.built;
+    $("part").textContent = b.partition; $("up").textContent = fmtUp(b.uptime_s); $("heap").textContent = Math.round(b.heap / 1024) + " kB";
+    if (a.fs === undefined) {
+      $("lock").textContent = "this firmware reports no audio data"; $("lock").className = "state s-warn";
+    } else {
+      $("fs").textContent = a.fs.toLocaleString("en");
+      const near = RATES.find(r => Math.abs(a.fs - r) / r < 0.02);
+      const L = $("lock");
+      if (near && a.format === "dolby digital") { const dd = a.dd || {}; L.textContent = "DOLBY DIGITAL " + (dd.layout || ""); L.className = "state s-ok"; $("locknote").textContent = "Decoding on the board, " + (dd.kbps || "?") + " kbit/s. " + (dd.layout && dd.layout[2] === "2" ? "Separate rear left and right." : dd.layout && dd.layout[2] === "0" ? "A stereo Dolby track: the matrix decoder makes the rears." : ""); }
+      else if (near && a.format === "bitstream") { L.textContent = "DOLBY / DTS BITSTREAM"; L.className = "state s-bad"; $("locknote").textContent = "Compressed data the board cannot decode (DTS or Dolby Digital Plus), or a Dolby stream that is just starting. Outputs stay silent. Set the TV to Dolby Digital or PCM."; }
+      else if (near) { L.textContent = "LOCKED, " + (near / 1000) + " kHz PCM"; L.className = "state s-ok"; $("locknote").textContent = "The DIR9001 is following the source."; }
+      else if (a.fs < 1000) { L.textContent = "NO CLOCK"; L.className = "state s-bad"; $("locknote").textContent = "No BCK/LRCK from the DIR9001: module unplugged or unpowered."; }
+      else { L.textContent = "NO INPUT SIGNAL"; L.className = "state s-warn"; $("locknote").textContent = "The DIR9001 is free-running on its crystal. Check the cable, the input toggle, and that the source is on."; }
+
+      $("pot").textContent = a.pot; $("gain").textContent = a.gain.toFixed(2);
+      $("gaindb").textContent = a.gain <= 0.0001 ? "off" : (20 * Math.log10(a.gain)).toFixed(1);
+      $("potfill").style.width = (a.pot / 4095 * 100) + "%";
+
+      const M = $("mute");
+      if (a.muted) { M.textContent = "MUTED"; M.className = "state s-bad"; $("outnote").textContent = "Muted with the USER button."; }
+      else if (!near) { M.textContent = "SILENT"; M.className = "state s-warn"; $("outnote").textContent = "DACs held muted until an input locks."; }
+      else { M.textContent = "PLAYING"; M.className = "state s-ok"; $("outnote").textContent = a.gain <= 0.0001 ? "But the pot is at zero." : a.mode === "front only" ? "Fronts only, surrounds silent." : "All four outputs active."; }
+
+      meter("L", a.peak_l_db); meter("R", a.peak_r_db);
+      const hasS = a.peak_s_db !== undefined;
+      $("rowS").style.display = hasS ? "" : "none";
+      if (hasS) meter("S", a.peak_s_db);
+      $("mode").textContent = a.mode || "passthrough";
+      lastApp = a;
+      document.querySelectorAll("[data-test]").forEach(b => b.classList.toggle("active", b.dataset.test !== "off" && b.dataset.test === a.test));
+      document.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("active", ["surround", "stereo on all four", "front only"][b.dataset.mode] === a.mode));
+      $("btnmute").textContent = a.muted ? "Unmute" : "Mute";
+      document.querySelectorAll("[data-sound]").forEach(b => b.classList.toggle("active", b.dataset.sound === a.sound));
+      $("sweephz").textContent = a.sound === "sweep" && a.test && a.test !== "off" ? Math.round(a.sweep_hz).toLocaleString("en") + " Hz" : "";
+      document.querySelectorAll("[data-drive]").forEach(b => b.classList.toggle("active", +b.dataset.drive === a.drive));
+      $("testnote").textContent = a.test === undefined ? "This firmware has no speaker test." :
+        a.test !== "off" && a.muted ? "Test selected, but the board is MUTED: press Unmute." :
+        a.test !== "off" && a.gain <= 0.0001 ? "Test selected, but the volume pot is at zero." :
+        a.test !== "off" && a.sound === "sweep" ? "Sweeping on: " + a.test.toUpperCase() + ", 20 s per pass, quiet on purpose. Listen for buzz or rattle and note the frequency shown." :
+        a.test !== "off" ? "Playing the chime on: " + a.test.toUpperCase() + ". Only that speaker should sound." :
+        "The test follows the volume pot and is silent while the board is muted.";
+      hist.push({ t: now, ok: true, l: a.peak_l_db, r: a.peak_r_db, s: hasS ? a.peak_s_db : undefined });
+      if (a.dd) {
+        $("ddframes").textContent = a.dd.frames;
+        $("dderr").textContent = a.dd.errors + " / " + a.dd.dropped + " / " + a.dd.underruns;
+        $("ddms").textContent = a.dd.decode_ms_avg.toFixed(1) + " / " + a.dd.decode_ms_max.toFixed(1) + " ms";
+      }
+      if (!first) first = a;
+      $("rdto").textContent = a.read_timeouts; $("wrerr").textContent = a.write_errors;
+      const dr = a.read_timeouts - first.read_timeouts, dw = a.write_errors - first.write_errors;
+      $("delta").textContent = (dr < 0 || dw < 0) ? "board restarted" : `+${dr} read, +${dw} write`;
+      if (dr < 0 || dw < 0) first = a;
+    }
+  }
+  while (hist.length && now - hist[0].t > 125000) hist.shift();
+  draw();
+}
+let lastApp = null;
+async function setBoard(qs) { try { await fetch("/api/board/set?" + qs, { cache: "no-store" }); } catch (e) {} tick(); }
+document.querySelectorAll("[data-test]").forEach(b => b.addEventListener("click", () => setBoard("test=" + b.dataset.test)));
+document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => setBoard("mode=" + b.dataset.mode)));
+document.querySelectorAll("[data-sound]").forEach(b => b.addEventListener("click", () => setBoard("sound=" + b.dataset.sound)));
+document.querySelectorAll("[data-drive]").forEach(b => b.addEventListener("click", () => setBoard("drive=" + b.dataset.drive)));
+$("btnmute").addEventListener("click", () => setBoard("mute=" + (lastApp && lastApp.muted ? 0 : 1)));
+tick(); setInterval(tick, 500);
+window.addEventListener("resize", draw);
+</script>
+</body>
+</html>

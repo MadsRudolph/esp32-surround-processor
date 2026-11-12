@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surround Bench</title>
+<style>
+:root {
+  --bg: #0d1014; --panel: #161a20; --panel2: #1c2129; --line: #2a313b; --grid: #232a33;
+  --text: #e8edf2; --muted: #98a4b0; --dim: #66717d;
+  --ch1: #ff9f43; --ch2: #4dabf7;
+  --pass: #3fb950; --fail: #f85149; --check: #e3b341; --info: #58a6ff;
+  --mono: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, select, input, textarea { font: inherit; color: var(--text); }
+button {
+  background: #2a3340; border: 1px solid #3a4553; border-radius: 8px; padding: 7px 16px;
+  cursor: pointer; font-weight: 600;
+}
+button:hover:not(:disabled) { background: #344050; }
+button:disabled { opacity: .45; cursor: default; }
+button.go { background: #1f6f3a; border-color: #2c8a4c; }
+button.go:hover:not(:disabled) { background: #26834a; }
+button.stop { background: #7a2a28; border-color: #9a3a36; }
+button.small { padding: 3px 10px; font-size: 14px; font-weight: 500; }
+select, input[type=text], textarea {
+  background: #0f1318; border: 1px solid #3a4553; border-radius: 7px; padding: 6px 9px;
+}
+input[type=text] { width: 9em; font-family: var(--mono); font-size: 19px; }
+textarea { width: 100%; min-height: 2.6em; resize: vertical; font-size: 15px; }
+input[type=number] { background: #0f1318; border: 1px solid #3a4553; border-radius: 7px; padding: 5px 7px; width: 5.5em; font-family: var(--mono); font-size: 16px; }
+.chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
+.chrow input[type=text] { width: 8.5em; font-size: 16px; }
+.chrow select { max-width: 11em; }
+.chrow input[type=checkbox] { margin-top: 0; }
+input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--pass); flex: none; margin-top: 2px; }
+code, .mono { font-family: var(--mono); }
+
+header {
+  position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 22px;
+  align-items: center; padding: 10px 20px; background: #10141a; border-bottom: 1px solid var(--line);
+}
+header h1 { font-size: 21px; margin: 0; letter-spacing: .2px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 99px;
+  background: var(--panel2); border: 1px solid var(--line); font-size: 15px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--dim); }
+.dot.ok { background: var(--pass); } .dot.bad { background: var(--fail); } .dot.warn { background: var(--check); }
+.spacer { flex: 1; }
+.muted { color: var(--muted); } .dim { color: var(--dim); }
+
+main { display: grid; grid-template-columns: minmax(420px, 5fr) minmax(520px, 7fr); gap: 18px; padding: 18px 20px 40px; }
+@media (max-width: 1250px) { main { grid-template-columns: 1fr; } }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.panel > h2 { margin: 0 0 10px; font-size: 19px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.seg { display: inline-flex; border: 1px solid #3a4553; border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; font-weight: 500; padding: 6px 13px; }
+.seg button.on { background: #34506e; font-weight: 700; }
+canvas { display: block; width: 100%; background: #0f1318; border-radius: 8px; border: 1px solid var(--grid); }
+.note { font-size: 14px; color: var(--muted); }
+.warnbox { border-left: 4px solid var(--check); background: #2a2614; padding: 6px 10px; border-radius: 6px; font-size: 15px; }
+.errbox { border-left: 4px solid var(--fail); background: #2c1716; padding: 6px 10px; border-radius: 6px; font-size: 15px; }
+
+table.stats { border-collapse: collapse; width: 100%; margin-top: 10px; font-variant-numeric: tabular-nums; }
+table.stats th { text-align: right; font-weight: 500; color: var(--muted); font-size: 14px; padding: 2px 8px; }
+table.stats td { text-align: right; padding: 3px 8px; font-family: var(--mono); font-size: 22px; }
+table.stats th:first-child, table.stats td:first-child { text-align: left; }
+table.stats td.name { font-family: inherit; font-weight: 700; font-size: 19px; }
+table.stats td.small { font-size: 16px; }
+.c1 { color: var(--ch1); } .c2 { color: var(--ch2); }
+
+/* procedure */
+.overview { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.overview a { text-decoration: none; }
+.step { background: var(--panel); border: 1px solid var(--line); border-left: 6px solid var(--dim); border-radius: 12px; }
+.step.pass { border-left-color: var(--pass); } .step.fail { border-left-color: var(--fail); }
+.step.check { border-left-color: var(--check); } .step.progress { border-left-color: var(--info); }
+.step.firmware { opacity: .5; }
+.step > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.step > summary::-webkit-details-marker { display: none; }
+.letter { font-weight: 800; font-size: 20px; width: 34px; height: 34px; border-radius: 8px; background: var(--panel2);
+  display: grid; place-items: center; flex: none; }
+.step h3 { margin: 0; font-size: 18px; flex: 1; }
+.tool { font-size: 13px; color: var(--muted); border: 1px solid var(--line); padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+.chip { font-size: 13px; font-weight: 800; letter-spacing: .6px; padding: 3px 10px; border-radius: 99px; white-space: nowrap;
+  background: #2a313b; color: var(--muted); }
+.chip:empty { display: none; }
+.chip.pass { background: #173d22; color: #7ee093; } .chip.fail { background: #4a1918; color: #ff9a94; }
+.chip.check { background: #45390f; color: #f2d06b; } .chip.progress { background: #15324f; color: #8cc4ff; }
+.body { padding: 0 16px 16px 62px; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 700px) { .body { padding-left: 16px; } }
+.body ol, .body ul { margin: 0; padding-left: 22px; } .body li { margin: 3px 0; }
+.readings { display: grid; grid-template-columns: 1fr auto auto; gap: 8px 12px; align-items: center; }
+.readings .lab b { display: block; } .readings .lab span { font-size: 14px; color: var(--muted); }
+.readings .exp { grid-column: 1 / -1; margin-top: -6px; font-size: 14px; color: var(--muted); }
+.unit { color: var(--muted); font-size: 15px; margin-left: 4px; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; cursor: pointer; }
+.ts { font-size: 13px; color: var(--dim); }
+.result { background: #10151b; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.verdict { font-size: 22px; font-weight: 800; }
+.verdict.pass { color: var(--pass); } .verdict.fail { color: var(--fail); } .verdict.check { color: var(--check); }
+.wire { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+pre.console { margin: 0; height: 330px; overflow: auto; background: #0a0d10; border: 1px solid var(--grid);
+  border-radius: 8px; padding: 10px 12px; font: 15px/1.4 var(--mono); white-space: pre-wrap; word-break: break-all; }
+pre.console.short { height: 180px; }
+.events { font-family: var(--mono); font-size: 14px; max-height: 120px; overflow: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Surround board bring-up</h1>
+  <span class="pill" id="devpill"><span class="dot" id="devdot"></span><span id="devtext">checking AD3</span></span>
+  <button class="small" id="release" title="Close the AD3 so WaveForms can use it; the page reopens it on the next measurement">Release AD3</button>
+  <a href="/debug" style="color:var(--info);text-decoration:none;font-weight:600">Board debug &rarr;</a>
+  <a href="/wiring" style="color:var(--info);text-decoration:none;font-weight:600">Speaker wiring guide &rarr;</a>
+  <span class="spacer"></span>
+  <span class="muted" id="runinfo"></span>
+  <button class="small" id="resetrun">Reset run</button>
+</header>
+
+<main>
+  <div class="col" id="proc">
+    <div class="panel">
+      <h2>Test procedure <span class="note" id="savedto"></span></h2>
+      <div class="overview" id="overview"></div>
+      <div class="note">Work down the steps in order. Typed readings and ticks save as you go; reload keeps them.
+        Instrument steps (D, E, F) measure on the AD3 and judge themselves; the button and tone steps (H) use the live scope and your own ticks.</div>
+    </div>
+    <div class="col" id="steps"></div>
+  </div>
+
+  <div class="col" id="inst">
+    <section class="panel" id="scopepanel">
+      <h2>Live scope <span class="note">two probes on anything: <span class="c1">CH1</span> (orange, 1+) &middot; <span class="c2">CH2</span> (blue, 2+). Set the labels below.</span></h2>
+      <div class="row">
+        <button class="go" id="scopebtn">Start</button>
+        <button id="pausebtn" disabled>Pause</button>
+        <button id="singlebtn">Single</button>
+        <label>Time base <select id="tb"></select></label>
+        <button class="small" id="savepng" title="Save the graph as a PNG picture">Save PNG</button>
+        <span class="spacer"></span>
+        <span class="note mono" id="scoperate"></span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Trigger <select id="trig"></select></label>
+        <label title="Absolute volts on the probe">Level <input type="number" id="tlevel" step="0.05" value="0"> V</label>
+        <button class="small" id="tauto" title="Set the level to the middle of the trigger channel's last trace">auto level</button>
+        <span class="note">edge trigger on the AD3: a repeating signal (1 kHz tone) stands still</span>
+      </div>
+      <div id="chrows"></div>
+      <div style="height:8px"></div>
+      <canvas id="scopecv" style="height:400px"></canvas>
+      <div class="mono note" id="cursor" style="margin-top:6px;min-height:1.4em"></div>
+      <table class="stats" id="scopestats">
+        <thead><tr><th>channel</th><th>mean V</th><th>min V</th><th>max V</th><th>p-p V</th><th>rms V</th><th>AC rms V</th><th>freq</th><th>logic</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="note" id="scopenote" style="margin-top:6px"></div>
+    </section>
+
+    <section class="panel" id="watchpanel">
+      <h2>Rail watch <span class="note">brown-out hunt: min and max of every 80 ms, continuous at 100 kS/s</span></h2>
+      <div class="row">
+        <button class="go" id="watchstart">Start</button>
+        <button class="stop" id="watchstop" disabled>Stop</button>
+        <button id="watchclear">Clear</button>
+        <label>Show <select id="watchspan">
+          <option value="60">last 1 min</option><option value="300" selected>last 5 min</option>
+          <option value="900">last 15 min</option><option value="3600">last 60 min</option><option value="0">everything</option>
+        </select></label>
+        <span class="spacer"></span><span class="note mono" id="watchinfo"></span>
+      </div>
+      <div style="height:10px"></div>
+      <canvas id="watchcv5" style="height:170px"></canvas>
+      <div style="height:6px"></div>
+      <canvas id="watchcv3" style="height:170px"></canvas>
+      <table class="stats" id="watchstats">
+        <thead><tr><th>rail</th><th>lowest V</th><th>at</th><th>highest V</th><th>dips</th><th>dip threshold</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="events" id="watchevents"></div>
+      <div class="note" id="watchnote">While the watch runs it owns the scope: the live view, rail check and ripple wait until you stop it. The UART console keeps running.</div>
+    </section>
+
+    <section class="panel" id="uartpanel">
+      <h2>UART console <span class="note">DIO0 (pink) on J2 TX, 8N1</span></h2>
+      <div class="row">
+        <button class="go" id="uartstart">Listen</button>
+        <button class="stop" id="uartstop" disabled>Stop</button>
+        <button id="uartclear">Clear</button>
+        <label>Baud <select id="baud">
+          <option>115200</option><option>74880</option><option>9600</option><option>57600</option>
+          <option>230400</option><option>460800</option></select></label>
+        <label class="row" style="gap:6px"><input type="checkbox" id="autoscroll" checked> follow</label>
+        <button class="small" id="uartself" title="Sends a line out of DIO15 and reads it back on DIO15. Leave DIO15 unconnected.">Self-test</button>
+        <span class="spacer"></span><span class="note mono" id="uartinfo"></span>
+      </div>
+      <div style="height:10px"></div>
+      <pre class="console" id="console"></pre>
+      <div class="note" style="margin-top:6px">Scope and UART run at the same time: the server takes turns on the USB link and was tested
+        decoding UART while the scope streamed. The self-test drives DIO15 only, never DIO0.</div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ======================================================================= the procedure
+// One entry per step. To add a step, add an object here. Fields:
+//   id, title, tool, intro, list (instructions), checks (tick boxes), readings (typed values),
+//   after (ticks after the readings), auto ('railcheck' | 'ripple' | 'bootlog'), firmware (greyed: needs something not yet possible)
+// Reading rules: {type:'min', fail, warn}   value below fail = FAIL, below warn = CHECK
+//                {type:'max', pass, warn}   value up to pass = PASS, up to warn = CHECK
+//                {type:'range', min, max, failAt}  in range = PASS; >= failAt = FAIL; else CHECK
+//                {type:'range', min, max}          in range = PASS; else FAIL
+const NOT_SHORT = {type: 'min', fail: 20, warn: 100, text: 'well above 0 &Omega;: over 100 &Omega; passes, under 20 &Omega; is a short'};
+const CONTINUITY = {type: 'max', pass: 2, warn: 5, text: 'under 2 &Omega;, or type <code>beep</code>'};
+
+const STEPS = [
+  { id: 'A', title: 'Unpowered: no shorts, grounds connected', tool: 'DMM',
+    intro: 'Board <b>unpowered</b>, both DAC modules <b>soldered in</b> (that is fine: they only lower the +5V reading a little). DMM on resistance, black lead on the <b>J1 GND screw</b> for every reading. ' +
+           'The capacitors charge, so let each reading climb and settle. Type <code>OL</code> for open, <code>1.2k</code> for 1.2 k&Omega;.',
+    readings: [
+      {key: 'r9',  label: '+9V to GND',  where: 'red lead on the J1 +9V screw', unit: '&Omega;', rule: NOT_SHORT},
+      {key: 'r5',  label: '+5V to GND',  where: 'the <b>+5V</b> hole of the DIR9001 pigtail row (A2), or the 7805 output leg', unit: '&Omega;', rule: NOT_SHORT},
+      {key: 'r33', label: '+3V3 to GND', where: 'J7 3V3 screw', unit: '&Omega;', rule: NOT_SHORT},
+      {key: 'gJ2', label: 'J2 GND pin',  where: 'continuity to J1 GND', unit: '&Omega;', rule: CONTINUITY},
+      {key: 'gJ6', label: 'J6 sleeve screw', where: 'continuity to J1 GND', unit: '&Omega;', rule: CONTINUITY},
+      {key: 'gRst', label: 'RESET button, ground side', where: 'continuity to J1 GND', unit: '&Omega;', rule: CONTINUITY},
+    ] },
+  { id: 'B', title: 'Wiring', tool: 'hands',
+    intro: 'Supply still off. The AD3 flywires are female: use male jumpers into the board.',
+    checks: [
+      'Korad set to <b>9.0 V</b>, current limit <b>0.25 A</b>, output OFF, leads to J1 (+9V and GND as marked)',
+      '<span class="wire" style="background:#111;border:1px solid #888"></span>AD3 GND (black) to <b>J2 GND</b>',
+      '<span class="wire" style="background:var(--ch1)"></span>AD3 Probe 1 (10x) hooked on the <b>7805 output leg</b> or a +5V resistor lead (R17, R18 or R19); ground clip on a GND point',
+      '<span class="wire" style="background:var(--ch2)"></span>Probe 2 (10x) on <b>J7 3V3</b>; ground clip on a GND point',
+      'Both probes switched to <b>10x</b>; BNC adapter jumpers on DC',
+      '<span class="wire" style="background:#ff6fb5"></span>AD3 DIO0 (pink) to <b>J2 TX</b>',
+      'No jumper touches its neighbour; DIO15 and the other DIO wires are loose',
+    ] },
+  { id: 'C', title: 'Power on', tool: 'Korad',
+    intro: 'Turn the Korad output on and read its current display. <b>If it sits at the 0.25 A limit, or the C.C. light comes on, turn the output off at once</b> and go back to step A.',
+    readings: [
+      {key: 'i', label: 'Supply current', where: 'Korad display', unit: 'mA',
+       rule: {type: 'range', min: 50, max: 140, failAt: 240, text: '50 to 140 mA with both DAC modules fitted; at the 250 mA limit is a FAIL'}},
+    ],
+    after: ['Power LED lit', 'Korad shows C.V., not C.C.'] },
+  { id: 'D', title: 'Rail check', tool: 'AD3', auto: 'railcheck',
+    intro: 'Measures both rails on the scope, a 10 ms window and a 1 s window (like <code>bench.py rails</code>). ' +
+           'Pass: the mean inside the limits and no sample more than 0.15 V below the lower one.',
+    rails: [{name: '+5V', lo: 4.75, hi: 5.25}, {name: '+3V3', lo: 3.15, hi: 3.45}], margin: 0.15 },
+  { id: 'E', title: 'Ripple', tool: 'AD3', auto: 'ripple',
+    intro: 'Measures the ripple on both rails with the scope on its 5 V range, centred on each rail (0.3 mV steps). ' +
+           'Pass: p-p up to 50 mV and rms up to 10 mV; up to 150 mV / 30 mV is CHECK (look at the trace); more is FAIL.',
+    limits: {ppPass: 50, rmsPass: 10, ppCheck: 150, rmsCheck: 30} },
+  { id: 'F', title: 'Boot log', tool: 'AD3 UART', auto: 'bootlog',
+    intro: 'Press <b>Listen</b>, then tap <b>RESET</b> on the board. The ESP32 ROM prints its boot banner at 115200 baud. ' +
+           'Passes when text containing <code>rst:</code> or <code>ets </code> arrives. With an empty flash it then complains it has no app, which is fine.',
+    match: /rst:|ets /, },
+  { id: 'G', title: 'Uno as USB-serial bridge', tool: 'DMM',
+    intro: 'The Uno\'s USB chip becomes the serial cable. Its RX line is 5 V, so it goes through a divider (the Uno\'s own 1 k&Omega; plus about 2.2 k&Omega; to GND) before the ESP32 sees it.',
+    checks: [
+      'Uno <b>RESET jumpered to GND</b> (keeps the ATmega off the serial lines)',
+      'Uno pin 1 (TX) to <b>J2 TX</b>',
+      'About 2.2 k&Omega; from the J2 RX end of the Uno pin 0 wire to GND (not yet on J2 RX)',
+      'Uno GND to board GND',
+      'Uno 5V and 3V3 pins <b>not connected</b> to anything',
+    ],
+    readings: [
+      {key: 'vdiv', label: 'Divider node to GND', where: 'the free end that will go on J2 RX, before it touches the ESP32', unit: 'V',
+       rule: {type: 'range', min: 2.8, max: 3.5, text: '2.8 to 3.5 V'}},
+    ],
+    after: ['Only after the reading passes: that end to J2 RX'] },
+  { id: 'H1', title: 'Flash test firmware', tool: 'Uno bridge',
+    intro: 'Hold BOOT, tap RESET, release; flash the bring-up firmware through the Uno bridge. Then tap RESET once more so it runs.',
+    checks: ['Firmware flashed without errors',
+             'Board runs it: the UART console (Listen) shows the firmware output after RESET'] },
+  { id: 'H2', title: 'Status LED', tool: 'eyes',
+    intro: 'Firmware blinks the status LED on IO17.',
+    checks: ['Status LED blinks'] },
+  { id: 'H3', title: 'Buttons: USER mutes, BOOT plays all', tool: 'live scope + hands',
+    intro: 'The test firmware plays a 1 kHz tone (about 0.5 V rms, 1.45 V p-p) on one of the four DAC outputs at a time, 2 s each. ' +
+           '<b>USER</b> mutes and unmutes the DACs (the XSMT line, 0 or 3.3 V) and the status LED blinks; holding <b>BOOT</b> plays the tone on all four outputs. ' +
+           'Set up the <b>Live scope</b>: probe 1 on a DAC output (label it, for example, SURR L), probe 2 on the XSMT line (label XSMT) or on the button pad, ' +
+           'both grounds on a board GND point. Pick the time base <b>Roll 10 s</b>: the tone shows as a thick band that appears and disappears, the XSMT line as a step; ' +
+           'the table beside the graph shows HIGH or LOW for a logic line. Switch to a normal time base with <b>Trigger</b> on CH1 rising to see the sine stand still (frequency 1000 Hz).',
+    checks: ['Probed output shows the 1 kHz tone, about 0.5 V rms, for 2 s at a time',
+             'Press USER: the tone stops and XSMT goes LOW (0 V); the status LED blinks',
+             'Press USER again: the tone returns and XSMT is HIGH (3.3 V)',
+             'Hold BOOT: the tone plays on all four outputs at once (move the probe over front L, front R, surround L, surround R)',
+             'A button pad reads HIGH (3.3 V) when idle and LOW (0 V) while pressed (probe on the BOOT or USER pad)'] },
+  { id: 'H4', title: 'Pot sweep', tool: 'UART', firmware: true, intro: 'Turn the J7 pot end to end; the ADC1 reading on IO33 sweeps smoothly 0 to full scale.' },
+  { id: 'H5', title: 'Test tone out of each DAC channel', tool: 'live scope',
+    intro: 'DAC modules fitted, test firmware running. A 1 kHz tone on front L, front R, surround L, surround R in turn. Probe each output with the <b>Live scope</b> ' +
+           '(label the channel, AC on, Roll 10 s to see when it plays, then a normal time base with the trigger to read frequency and rms).',
+    checks: ['Front L: about 1 kHz, 0.5 V rms (1.45 V p-p), clean sine',
+             'Front R: about 1 kHz, 0.5 V rms (1.45 V p-p), clean sine',
+             'Surround L: about 1 kHz, 0.5 V rms (1.45 V p-p), clean sine',
+             'Surround R: about 1 kHz, 0.5 V rms (1.45 V p-p), clean sine',
+             'The three outputs that are not playing stay quiet'] },
+];
+
+// ======================================================================= helpers
+const $ = (s, el = document) => el.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const css = getComputedStyle(document.documentElement);
+const COL = {ch1: css.getPropertyValue('--ch1').trim(), ch2: css.getPropertyValue('--ch2').trim(),
+  grid: '#232a33', axis: '#7b8794', fail: css.getPropertyValue('--fail').trim(), text: '#c9d1d9'};
+const RAILCOL = [COL.ch1, COL.ch2];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const fmt = (v, d = 3) => (v === null || v === undefined || !isFinite(v)) ? '–' : v.toFixed(d);
+
+async function api(path, body) {
+  try {
+    const r = await fetch(path, body === undefined ? {cache: 'no-store'} :
+      {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    try { return await r.json(); } catch (e) { return {ok: false, error: 'bad reply from the server (' + r.status + ')'}; }
+  } catch (e) { return {ok: false, offline: true, error: 'bench server not reachable: is tools/bench_server.py running?'}; }
+}
+function clock(t) { const d = new Date(t * 1000); return d.toLocaleTimeString([], {hour12: false}); }
+
+// ======================================================================= plotting
+function niceStep(span, n) {
+  const raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+}
+function prep(cv) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;                 // hidden (closed step card): drawn when opened
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return {ctx, w, h};
+}
+// o: {x:[x0,x1], y:[y0,y1], xfmt, yfmt, xticks:[...]?, series:[{pts:[[x,mn,mx]|null], color}], hlines:[{y,color,label}], msg}
+function plot(cv, o) {
+  const pr = prep(cv); if (!pr) return;
+  const {ctx, w, h} = pr;
+  const L = 66, R = 14, T = 10, B = 28, pw = w - L - R, ph = h - T - B;
+  ctx.clearRect(0, 0, w, h);
+  const [x0, x1] = o.x, [y0, y1] = o.y;
+  const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + (1 - (y - y0) / (y1 - y0)) * ph;
+  ctx.font = '13px ' + css.getPropertyValue('--mono'); ctx.lineWidth = 1;
+  // grid + y labels
+  const ys = niceStep(y1 - y0, Math.max(2, Math.floor(ph / 42)));
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let v = Math.ceil(y0 / ys) * ys; v <= y1 + ys * 1e-6; v += ys) {
+    const y = Math.round(Y(v)) + .5;
+    ctx.strokeStyle = COL.grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke();
+    ctx.fillStyle = COL.axis; ctx.fillText(o.yfmt(v, ys), L - 7, y);
+  }
+  // x labels
+  const xt = o.xticks || (() => { const s = niceStep(x1 - x0, Math.max(2, Math.floor(pw / 90))), a = [];
+    for (let v = Math.ceil(x0 / s) * s; v <= x1 + s * 1e-6; v += s) a.push(v); return a; })();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const xs = xt.length > 1 ? xt[1] - xt[0] : (x1 - x0);
+  for (const v of xt) {
+    const x = Math.round(X(v)) + .5;
+    ctx.strokeStyle = COL.grid; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke();
+    ctx.fillStyle = COL.axis; ctx.fillText(o.xfmt(v, xs), Math.min(Math.max(x, L + 20), L + pw - 20), T + ph + 7);
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  // limit lines
+  for (const hl of (o.hlines || [])) {
+    if (hl.y < y0 || hl.y > y1) continue;
+    const y = Math.round(Y(hl.y)) + .5;
+    ctx.strokeStyle = hl.color; ctx.globalAlpha = .75; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]);
+    if (hl.label) { ctx.fillStyle = hl.color; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(hl.label, L + pw - 4, y - 2); }
+    ctx.globalAlpha = 1;
+  }
+  // envelopes: band between min and max, edges stroked so a clean line still shows
+  for (const s of (o.series || [])) {
+    const runs = []; let cur = [];
+    for (const p of s.pts) { if (p === null) { if (cur.length) runs.push(cur); cur = []; } else cur.push(p); }
+    if (cur.length) runs.push(cur);
+    for (const r of runs) {
+      ctx.beginPath();
+      r.forEach((p, i) => { const x = X(p[0]), y = Y(Math.min(y1 + (y1 - y0), p[2])); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      for (let i = r.length - 1; i >= 0; i--) ctx.lineTo(X(r[i][0]), Y(Math.max(y0 - (y1 - y0), r[i][1])));
+      ctx.closePath();
+      ctx.fillStyle = s.color; ctx.globalAlpha = .35; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = s.color; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
+    }
+  }
+  ctx.restore();
+  ctx.strokeStyle = '#38424f'; ctx.strokeRect(L + .5, T + .5, pw, ph);
+  if (o.title) { ctx.fillStyle = o.titleColor || COL.text; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText(o.title, L + 8, T + 6); }
+  if (o.msg) {
+    ctx.font = '18px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(o.msg).width + 30;
+    ctx.fillStyle = 'rgba(13,16,20,.85)'; ctx.fillRect(L + pw / 2 - tw / 2, T + ph / 2 - 20, tw, 40);
+    ctx.fillStyle = COL.text; ctx.fillText(o.msg, L + pw / 2, T + ph / 2);
+  }
+}
+const envPts = (env, x0, x1, off = 0, k = 1) => env.map((e, i) => [x0 + (i + .5) / env.length * (x1 - x0), (e[0] - off) * k, (e[1] - off) * k]);
+function timeFmt(span) {
+  if (span < 0.0199) return (v, s) => (v * 1000).toFixed(s * 1000 < 1 ? 2 : s * 1000 < 10 ? 1 : 0) + ' ms';
+  if (span < 1.99) return (v) => (v * 1000).toFixed(0) + ' ms';
+  return (v) => v.toFixed(1) + ' s';
+}
+const vFmt = (v, s) => v.toFixed(s < 0.01 ? 3 : s < 0.1 ? 2 : s < 1 ? 1 : 0) + ' V';
+const mvFmt = (v, s) => v.toFixed(s < 1 ? 1 : 0) + ' mV';
+function autoRange(lo, hi, minSpan) {
+  if (!isFinite(lo) || !isFinite(hi)) return [-1, 1];
+  let span = Math.max(hi - lo, minSpan), mid = (hi + lo) / 2;
+  return [mid - span * 0.6, mid + span * 0.6];
+}
+
+// ======================================================================= results state
+const state = {steps: {}, run_started: null};
+const saveTimers = {};
+const stepStatus = {};
+
+function evalRule(rule, raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  let s = String(raw).trim().replace(',', '.').replace(/\s*(Ω|ohms?|v|ma)\s*$/i, '');
+  if (/^(b|beep|beeps|yes|y)$/i.test(s)) return rule.type === 'max' ? 'pass' : null;
+  let v;
+  if (/^(ol|o\.l\.?|open|inf|∞)$/i.test(s)) v = Infinity;
+  else {
+    const m = s.match(/^(-?\d*\.?\d+(?:e-?\d+)?)\s*([kKmMuµ]?)$/);
+    if (!m) return 'bad';
+    v = parseFloat(m[1]) * ({k: 1e3, K: 1e3, M: 1e6, m: 1e-3, u: 1e-6, 'µ': 1e-6}[m[2]] || 1);
+  }
+  if (rule.type === 'min') return v < rule.fail ? 'fail' : v < rule.warn ? 'check' : 'pass';
+  if (rule.type === 'max') return v <= rule.pass ? 'pass' : v <= rule.warn ? 'check' : 'fail';
+  if (rule.type === 'range') {
+    if (v >= rule.min && v <= rule.max) return 'pass';
+    if (rule.failAt === undefined) return 'fail';
+    return v >= rule.failAt ? 'fail' : 'check';
+  }
+  return null;
+}
+
+function computeStatus(step) {
+  if (step.firmware) return 'firmware';
+  const rec = state.steps[step.id] || {};
+  const parts = [];
+  for (const r of (step.readings || [])) parts.push(evalRule(r.rule, (rec.values || {})[r.key]));
+  const ticks = [...(step.checks || []), ...(step.after || [])];
+  ticks.forEach((_, i) => parts.push((rec.checks || {})[i] ? 'pass' : null));
+  if (step.auto) parts.push(rec.auto ? rec.auto.status : null);
+  if (parts.includes('fail')) return 'fail';
+  if (parts.includes('bad')) return 'progress';
+  const done = parts.filter(p => p !== null).length;
+  if (done === 0) return (rec.notes ? 'progress' : 'pending');
+  if (done < parts.length) return 'progress';
+  return parts.includes('check') ? 'check' : 'pass';
+}
+const CHIP = {pending: 'NOT RUN', progress: 'IN PROGRESS', pass: 'PASS', fail: 'FAIL', check: 'CHECK', firmware: 'NEEDS FIRMWARE'};
+
+function refreshStatus(step) {
+  const st = computeStatus(step);
+  stepStatus[step.id] = st;
+  const card = document.getElementById('step-' + step.id);
+  card.className = 'step ' + st;
+  const chip = $('.chip', card); chip.className = 'chip ' + st; chip.textContent = CHIP[st];
+  const rec = state.steps[step.id];
+  const ts = $('.ts', card); if (ts) ts.textContent = rec && rec.ts ? 'saved ' + new Date(rec.ts).toLocaleString() : '';
+  renderOverview();
+  return st;
+}
+function renderOverview() {
+  $('#overview').innerHTML = STEPS.map(s => {
+    const st = stepStatus[s.id] || 'pending';
+    return `<a href="#step-${s.id}" class="chip ${st}" title="${esc(s.title)}">${s.id} ${st === 'pending' ? '' : st === 'firmware' ? 'later' : CHIP[st]}</a>`;
+  }).join('');
+}
+
+function saveStep(step, now) {
+  clearTimeout(saveTimers[step.id]);
+  const go = async () => {
+    const rec = state.steps[step.id] || {};
+    const body = {id: step.id, title: step.title, status: computeStatus(step), values: rec.values || {},
+                  checks: rec.checks || {}, notes: rec.notes || '', auto: rec.auto || null};
+    const d = await api('/api/results/step', body);
+    if (d.ok) { rec.ts = d.ts; state.steps[step.id] = rec; refreshStatus(step); }
+    else { const card = document.getElementById('step-' + step.id); $('.ts', card).textContent = 'NOT SAVED: ' + d.error; }
+  };
+  if (now) go(); else saveTimers[step.id] = setTimeout(go, 500);
+}
+function rec(step) { return state.steps[step.id] || (state.steps[step.id] = {values: {}, checks: {}, notes: ''}); }
+
+// ======================================================================= step cards
+function buildSteps() {
+  const box = $('#steps'); box.innerHTML = '';
+  let firstOpen = null;
+  for (const step of STEPS) {
+    const st = computeStatus(step);
+    if (!firstOpen && !step.firmware && st !== 'pass') firstOpen = step.id;
+  }
+  for (const step of STEPS) {
+    const card = document.createElement('details');
+    card.id = 'step-' + step.id;
+    card.open = step.id === firstOpen;
+    const r = rec(step);
+    let h = `<summary><span class="letter">${step.id}</span><h3>${step.title}</h3><span class="tool">${step.tool}</span><span class="chip"></span></summary><div class="body">`;
+    h += `<div>${step.intro}</div>`;
+    if (step.firmware) { h += `<div class="note">Needs firmware on the ESP32. Not available yet.</div></div>`; card.innerHTML = h; box.appendChild(card); refreshStatus(step); continue; }
+    if (step.checks) h += `<div class="checks">${step.checks.map((c, i) => `<label><input type="checkbox" data-c="${i}"><span>${c}</span></label>`).join('')}</div>`;
+    if (step.readings) {
+      h += `<div class="readings">`;
+      for (const rd of step.readings) {
+        h += `<div class="lab"><b>${rd.label}</b><span>${rd.where}</span></div>
+              <div><input type="text" data-k="${rd.key}" autocomplete="off"><span class="unit">${rd.unit}</span></div>
+              <span class="chip" data-v="${rd.key}"></span>
+              <div class="exp">expect ${rd.rule.text || ''}</div>`;
+      }
+      h += `</div>`;
+    }
+    const off = (step.checks || []).length;
+    if (step.after) h += `<div class="checks">${step.after.map((c, i) => `<label><input type="checkbox" data-c="${off + i}"><span>${c}</span></label>`).join('')}</div>`;
+    if (step.auto === 'railcheck') h += `<div class="row"><button class="go" data-act="railcheck">Run rail check</button><span class="note" data-msg></span></div><div data-res></div>`;
+    if (step.auto === 'ripple') h += `<div class="row"><button class="go" data-act="ripple">Measure ripple</button><span class="note" data-msg></span></div><div data-res></div>`;
+    if (step.auto === 'bootlog') h += `<div class="row"><button class="go" data-act="listen">Listen</button><button class="stop" data-act="stoplisten" disabled>Stop</button>
+         <label>Baud <select data-baud><option>115200</option><option>74880</option></select></label><span class="note" data-msg></span></div>
+         <pre class="console short" data-log></pre><div class="note">Nothing arrives: check the pink lead is on J2 TX and the black on J2 GND. Garbage: try the other baud rate.</div><div data-res></div>`;
+    h += `<div><div class="note">Notes</div><textarea data-notes rows="2"></textarea></div><div class="ts"></div></div>`;
+    card.innerHTML = h;
+    box.appendChild(card);
+
+    // fill + wire up
+    card.querySelectorAll('input[type=checkbox][data-c]').forEach(cb => {
+      cb.checked = !!(r.checks || {})[cb.dataset.c];
+      cb.addEventListener('change', () => { rec(step).checks[cb.dataset.c] = cb.checked; refreshStatus(step); saveStep(step); });
+    });
+    card.querySelectorAll('input[data-k]').forEach(inp => {
+      const rd = step.readings.find(x => x.key === inp.dataset.k);
+      const chip = card.querySelector(`[data-v="${rd.key}"]`);
+      const upd = () => { const v = evalRule(rd.rule, inp.value);
+        chip.className = 'chip ' + (v === 'bad' ? 'fail' : v || ''); chip.textContent = v === 'bad' ? '?' : v ? v.toUpperCase() : ''; };
+      inp.value = (r.values || {})[rd.key] || ''; upd();
+      inp.addEventListener('input', () => { rec(step).values[rd.key] = inp.value; upd(); refreshStatus(step); saveStep(step); });
+    });
+    const notes = $('textarea[data-notes]', card);
+    notes.value = r.notes || '';
+    notes.addEventListener('input', () => { rec(step).notes = notes.value; refreshStatus(step); saveStep(step); });
+    card.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => ACTIONS[b.dataset.act](step, card, b)));
+    if (r.auto) showAuto(step, card, r.auto);
+    card.addEventListener('toggle', () => redrawAuto(step, card));
+    refreshStatus(step);
+  }
+}
+
+function redrawAuto(step, card) {
+  const a = (state.steps[step.id] || {}).auto;
+  if (card.open && a && !(step.auto === 'bootlog' && boot.active)) showAuto(step, card, a);
+}
+function showAuto(step, card, a) {
+  const res = $('[data-res]', card);
+  if (step.auto === 'railcheck') renderRailResult(step, res, a);
+  if (step.auto === 'ripple') renderRippleResult(step, res, a);
+  if (step.auto === 'bootlog') { $('[data-log]', card).textContent = clean(a.text || ''); res.innerHTML = `<div class="verdict ${a.status}">${CHIP[a.status]}</div><div class="note">${esc(a.summary || '')}</div>`; }
+}
+
+// --- D: rail check
+function judgeRails(step, d) {
+  let ok = true;
+  for (const w of d.windows) for (const c of w.ch) {
+    const lim = step.rails.find(x => x.name === c.name);
+    c.ok = lim.lo <= c.stats.mean && c.stats.mean <= lim.hi && c.stats.min > lim.lo - step.margin;
+    ok = ok && c.ok;
+  }
+  return ok ? 'pass' : 'fail';
+}
+function renderRailResult(step, res, a) {
+  let h = `<div class="result"><div class="row"><span class="verdict ${a.status}">${CHIP[a.status]}</span><span class="note">measured ${new Date(a.t * 1000).toLocaleString()}</span></div>
+    <table class="stats"><thead><tr><th>window</th><th>rail</th><th>mean V</th><th>min V</th><th>max V</th><th>p-p mV</th><th>rms mV</th><th></th></tr></thead><tbody>`;
+  for (const w of a.windows) for (const [i, c] of w.ch.entries()) {
+    h += `<tr><td class="small">${w.label}</td><td class="name c${i + 1}">${c.name}</td><td>${fmt(c.stats.mean)}</td><td>${fmt(c.stats.min)}</td><td>${fmt(c.stats.max)}</td>
+      <td class="small">${fmt(c.stats.pp * 1000, 1)}</td><td class="small">${fmt(c.stats.rms * 1000, 1)}</td><td><span class="chip ${c.ok ? 'pass' : 'fail'}">${c.ok ? 'OK' : 'OUT'}</span></td></tr>`;
+  }
+  h += `</tbody></table><div style="height:8px"></div>${a.windows.map((_, i) => `<canvas data-cv="${i}" style="height:200px;margin-top:6px"></canvas>`).join('')}</div>`;
+  res.innerHTML = h;
+  a.windows.forEach((w, i) => {
+    const hl = [];
+    step.rails.forEach((r, k) => { hl.push({y: r.lo, color: RAILCOL[k]}, {y: r.hi, color: RAILCOL[k]}); });
+    plot($(`[data-cv="${i}"]`, res), {x: [0, w.window], y: [0, 6], xfmt: timeFmt(w.window), yfmt: vFmt, hlines: hl,
+      title: w.label + ' window', series: w.ch.map((c, k) => ({color: RAILCOL[k], pts: envPts(c.env, 0, w.window)}))});
+  });
+}
+
+// --- E: ripple
+function judgeRipple(step, d) {
+  const L = step.limits; let worst = 'pass';
+  const rank = {pass: 0, check: 1, fail: 2};
+  for (const w of d.windows) for (const c of w.ch) {
+    let v = 'pass', why = '';
+    if (!c.present) { v = 'fail'; why = 'rail not present (under 1 V)'; }
+    else if (c.pp_mV > L.ppCheck || c.rms_mV > L.rmsCheck) { v = 'fail'; why = 'too much ripple'; }
+    else if (c.clipped) { v = 'check'; why = 'trace left the 5 V window'; }
+    else if (c.pp_mV > L.ppPass || c.rms_mV > L.rmsPass) { v = 'check'; why = 'look at the trace'; }
+    c.v = v; c.why = why;
+    if (rank[v] > rank[worst]) worst = v;
+  }
+  return worst;
+}
+function renderRippleResult(step, res, a) {
+  let h = `<div class="result"><div class="row"><span class="verdict ${a.status}">${CHIP[a.status]}</span><span class="note">measured ${new Date(a.t * 1000).toLocaleString()} &middot; ${esc(a.note || '')}</span></div>
+    <table class="stats"><thead><tr><th>window</th><th>rail</th><th>mean V</th><th>p-p mV</th><th>rms mV</th><th></th></tr></thead><tbody>`;
+  for (const w of a.windows) for (const [i, c] of w.ch.entries()) {
+    h += `<tr><td class="small">${w.label}</td><td class="name c${i + 1}">${c.name}</td><td class="small">${fmt(c.mean)}</td><td>${fmt(c.pp_mV, 1)}</td><td>${fmt(c.rms_mV, 2)}</td>
+      <td><span class="chip ${c.v}" title="${esc(c.why)}">${c.v.toUpperCase()}</span> <span class="note">${esc(c.why)}</span></td></tr>`;
+  }
+  h += `</tbody></table>${a.windows.map((_, i) => `<canvas data-cv="${i}" style="height:200px;margin-top:6px"></canvas>`).join('')}</div>`;
+  res.innerHTML = h;
+  a.windows.forEach((w, i) => {
+    let m = 2; for (const c of w.ch) for (const e of c.env_mV) m = Math.max(m, Math.abs(e[0]), Math.abs(e[1]));
+    m = Math.min(m * 1.2, 3000);
+    plot($(`[data-cv="${i}"]`, res), {x: [0, w.window], y: [-m, m], xfmt: timeFmt(w.window), yfmt: mvFmt,
+      title: w.label + ' window, mean removed', series: w.ch.map((c, k) => ({color: RAILCOL[k], pts: envPts(c.env_mV, 0, w.window)}))});
+  });
+}
+
+const ACTIONS = {
+  async railcheck(step, card, btn) {
+    const msg = $('[data-msg]', card); btn.disabled = true; msg.textContent = 'measuring (about 2 s)...';
+    const d = await api('/api/railcheck', {});
+    btn.disabled = false;
+    if (!d.ok) { msg.innerHTML = `<span class="errbox">${esc(d.error)}</span>`; return; }
+    msg.textContent = '';
+    const a = {status: judgeRails(step, d), t: d.t, windows: d.windows};
+    rec(step).auto = a; showAuto(step, card, a); refreshStatus(step); saveStep(step, true);
+  },
+  async ripple(step, card, btn) {
+    const msg = $('[data-msg]', card); btn.disabled = true; msg.textContent = 'measuring (about 2 s)...';
+    const d = await api('/api/ripple', {});
+    btn.disabled = false;
+    if (!d.ok) { msg.innerHTML = `<span class="errbox">${esc(d.error)}</span>`; return; }
+    msg.textContent = '';
+    const a = {status: judgeRipple(step, d), t: d.t, windows: d.windows, note: d.note};
+    rec(step).auto = a; showAuto(step, card, a); refreshStatus(step); saveStep(step, true);
+  },
+  async listen(step, card, btn) {
+    const baud = +$('[data-baud]', card).value, msg = $('[data-msg]', card), log = $('[data-log]', card);
+    const d = await api('/api/uart/start', {baud, pin: 0});
+    if (!d.ok) { msg.innerHTML = `<span class="errbox">${esc(d.error)}</span>`; return; }
+    uartUi(true, baud);
+    const u0 = await api('/api/uart?since=999999999999');
+    let mark = u0.ok ? u0.end : 0, text = '';
+    btn.disabled = true; $('[data-act=stoplisten]', card).disabled = false;
+    msg.textContent = `listening at ${baud} baud on DIO0: tap RESET on the board now`;
+    log.textContent = '';
+    boot.active = true; boot.stop = false;
+    const t0 = Date.now();
+    while (!boot.stop) {
+      const u = await api('/api/uart?since=' + mark);
+      if (u.ok) {
+        if (u.text) { text += u.text; mark = u.end; log.textContent = clean(text); log.scrollTop = log.scrollHeight; }
+        if (u.error) msg.innerHTML = `<span class="errbox">${esc(u.error)}</span>`;
+        if (!u.running) break;
+      }
+      if (step.match.test(text)) {
+        await sleep(1500);   // let the rest of the banner arrive
+        const u2 = await api('/api/uart?since=' + mark); if (u2.ok && u2.text) { text += u2.text; log.textContent = clean(text); }
+        break;
+      }
+      msg.textContent = `listening at ${baud} baud: tap RESET now (${Math.round((Date.now() - t0) / 1000)} s, ${text.length} bytes)`;
+      await sleep(250);
+    }
+    boot.active = false;
+    btn.disabled = false; $('[data-act=stoplisten]', card).disabled = true;
+    const hit = step.match.test(text);
+    const a = {status: hit ? 'pass' : (text.length ? 'check' : 'fail'), t: Date.now() / 1000, baud, text: text.slice(0, 4000),
+      summary: hit ? `boot banner seen at ${baud} baud (${text.length} bytes)` :
+               text.length ? `${text.length} bytes arrived but no "rst:" or "ets ": wrong baud?` : 'nothing arrived'};
+    msg.textContent = '';
+    rec(step).auto = a; showAuto(step, card, a); refreshStatus(step); saveStep(step, true);
+  },
+  stoplisten() { boot.stop = true; },
+};
+const boot = {active: false, stop: false};
+
+// ======================================================================= live scope
+// A general two-channel viewer. Settings (labels, scales, ...) live in localStorage; the rail
+// check, ripple, watch and steps D/E keep their own fixed +5V / +3V3 meaning on CH1 / CH2.
+const SC_KEY = 'bench.scope.v1';
+const PRESETS = ['+5V', '+3V3', 'FRONT L', 'FRONT R', 'SURR L', 'SURR R', 'XSMT', 'BOOT', 'USER'];
+const TB = [['0.001', '1 ms'], ['0.002', '2 ms'], ['0.005', '5 ms'], ['0.01', '10 ms'], ['0.02', '20 ms'], ['0.05', '50 ms'],
+            ['0.1', '100 ms'], ['0.2', '200 ms'], ['0.5', '500 ms'], ['1', '1 s'],
+            ['r2', 'Roll 2 s'], ['r5', 'Roll 5 s'], ['r10', 'Roll 10 s'], ['r30', 'Roll 30 s'], ['r60', 'Roll 60 s']];
+const VS = [['auto', 'auto'], ['logic', 'logic 0 to 3.3 V'], ['rail', '0 to 8 V (1 V/div)'], ['0.001', '1 mV/div'], ['0.002', '2 mV/div'],
+            ['0.005', '5 mV/div'], ['0.01', '10 mV/div'], ['0.02', '20 mV/div'], ['0.05', '50 mV/div'], ['0.1', '100 mV/div'],
+            ['0.2', '200 mV/div'], ['0.5', '500 mV/div'], ['1', '1 V/div'], ['2', '2 V/div'], ['5', '5 V/div']];
+const TRIGS = [['off', 'off (free run)'], ['1r', 'CH1 rising'], ['1f', 'CH1 falling'], ['2r', 'CH2 rising'], ['2f', 'CH2 falling']];
+const LOGIC_TH = 1.65;
+const SC_DEFAULT = {labels: ['CH1', 'CH2'], en: [true, true], ac: [false, false], vs: ['auto', 'auto'], pos: [0, 0],
+                    rng: ['auto', 'auto'], tb: '0.01', trig: 'off', level: 0};
+function loadCfg() {
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem(SC_KEY) || '{}') || {}; } catch (e) { c = {}; }
+  const o = {};
+  for (const [k, def] of Object.entries(SC_DEFAULT)) {
+    const v = c[k];
+    o[k] = Array.isArray(def) ? (Array.isArray(v) && v.length === 2 ? v : def.slice()) : (typeof v === typeof def ? v : def);
+  }
+  if (!TB.some(t => t[0] === o.tb)) o.tb = SC_DEFAULT.tb;
+  if (!TRIGS.some(t => t[0] === o.trig)) o.trig = 'off';
+  return o;
+}
+function saveCfg() { try { localStorage.setItem(SC_KEY, JSON.stringify(scfg)); } catch (e) { /* private window: fine */ } }
+const scfg = loadCfg();
+const scope = {on: false, paused: false, once: false, looping: false, last: null, frames: 0, t0: 0, msg: 'press Start',
+               auto: [null, null], cur: null, view: null, geom: null, pausedAt: 0};
+const R = {on: false, key: '', pts: [], seq: 0, info: null, srv: 0, recv: 0};      // roll recorder, page side
+const isRoll = () => scfg.tb[0] === 'r';
+const rollSpan = () => +scfg.tb.slice(1);
+const rollNow = () => R.srv + (performance.now() - R.recv) / 1000;
+const railLimits = () => STEPS.find(s => s.id === 'D').rails;
+
+$('#tb').innerHTML = TB.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+$('#tb').value = scfg.tb;
+$('#trig').innerHTML = TRIGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+$('#trig').value = scfg.trig;
+$('#tlevel').value = scfg.level;
+$('#chrows').innerHTML = [0, 1].map(k => `<div class="chrow" data-k="${k}">
+    <label class="row" style="gap:6px" title="show or hide this channel"><input type="checkbox" data-f="en"><b class="c${k + 1}">CH${k + 1}</b></label>
+    <input type="text" data-f="label" list="chpresets" maxlength="14" placeholder="label" title="free text, or pick a preset">
+    <label class="row" style="gap:6px" title="AC coupled: the mean is removed from the trace (the readouts stay as measured)"><input type="checkbox" data-f="ac"> AC</label>
+    <label>Scale <select data-f="vs">${VS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+    <label title="Volts at the middle of the screen (fixed V/div scales only)">Centre <input type="number" data-f="pos" step="0.1"> V</label>
+    <label title="Input range: auto follows the signal; 50 V coarse (3.7 mV steps); 5 V fine (0.3 mV steps, centred on the signal)">Input <select data-f="rng"><option value="auto">auto</option><option value="50">50 V coarse</option><option value="5">5 V fine</option></select></label>
+  </div>`).join('') + `<datalist id="chpresets">${PRESETS.map(p => `<option value="${p}">`).join('')}</datalist>`;
+document.querySelectorAll('.chrow').forEach(row => {
+  const k = +row.dataset.k;
+  row.querySelectorAll('[data-f]').forEach(el => {
+    const f = el.dataset.f, key = {en: 'en', label: 'labels', ac: 'ac', vs: 'vs', pos: 'pos', rng: 'rng'}[f];
+    if (el.type === 'checkbox') el.checked = !!scfg[key][k]; else el.value = scfg[key][k];
+    el.addEventListener(el.type === 'text' || el.type === 'number' ? 'input' : 'change', () => {
+      scfg[key][k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (parseFloat(el.value) || 0) : el.value;
+      if (f !== 'label' && f !== 'en') scope.auto[k] = null;
+      saveCfg(); drawScope();
+    });
+  });
+});
+
+function scopeUi() {
+  const roll = isRoll();
+  $('#scopebtn').textContent = scope.on ? 'Stop' : 'Start';
+  $('#scopebtn').className = scope.on ? 'stop' : 'go';
+  $('#pausebtn').disabled = !scope.on;
+  $('#pausebtn').textContent = scope.paused ? 'Resume' : 'Pause';
+  $('#singlebtn').disabled = roll;
+  $('#singlebtn').title = roll ? 'Single shot is for the normal (non-roll) view: in roll mode use Pause to freeze the strip chart'
+                               : 'One acquisition (waits up to 10 s for the trigger when one is set), then holds';
+  $('#trig').disabled = $('#tlevel').disabled = $('#tauto').disabled = roll;
+  $('#trig').title = roll ? 'The trigger is for the normal view; the roll view is a continuous strip chart' : '';
+}
+async function stopScope() {
+  scope.on = false; scope.paused = false; scope.once = false;
+  scope.msg = 'stopped';
+  scopeUi(); drawScope();
+  if (R.on) { R.on = false; await api('/api/roll/stop', {}); }
+}
+function startScope() {
+  scope.on = true; scope.paused = false; scope.msg = '';
+  scopeUi(); scopeLoop();
+}
+$('#scopebtn').addEventListener('click', () => { scope.on ? stopScope() : startScope(); });
+$('#pausebtn').addEventListener('click', () => {
+  scope.paused = !scope.paused;
+  if (scope.paused) scope.pausedAt = rollNow();
+  scopeUi(); drawScope();
+});
+$('#singlebtn').addEventListener('click', () => {
+  scope.once = true; scope.paused = false;
+  if (!scope.on) startScope(); else { scopeUi(); drawScope(); }
+});
+$('#tb').addEventListener('change', () => {
+  scfg.tb = $('#tb').value; scope.auto = [null, null]; scope.frames = 0; scope.t0 = performance.now();
+  saveCfg(); scopeUi(); drawScope();
+});
+$('#trig').addEventListener('change', () => { scfg.trig = $('#trig').value; saveCfg(); drawScope(); });
+$('#tlevel').addEventListener('input', () => { scfg.level = parseFloat($('#tlevel').value) || 0; saveCfg(); drawScope(); });
+$('#tauto').addEventListener('click', () => {
+  const t = scfg.trig;
+  if (t === 'off' || !scope.last) return;
+  const s = scope.last.ch[+t[0] - 1].stats;
+  scfg.level = Math.round((s.min + s.max) / 2 * 100) / 100; $('#tlevel').value = scfg.level; saveCfg(); drawScope();
+});
+$('#savepng').addEventListener('click', () => {
+  const cv = $('#scopecv'), c = document.createElement('canvas');
+  c.width = cv.width; c.height = cv.height;
+  const x = c.getContext('2d'); x.fillStyle = '#0f1318'; x.fillRect(0, 0, c.width, c.height); x.drawImage(cv, 0, 0);
+  c.toBlob(b => {
+    if (!b) return;
+    const a = document.createElement('a'), d = new Date(), z = n => String(n).padStart(2, '0');
+    a.href = URL.createObjectURL(b);
+    a.download = `scope-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+});
+$('#scopecv').addEventListener('mousemove', e => {
+  const g = scope.geom; if (!g) return;
+  const fx = (e.clientX - e.currentTarget.getBoundingClientRect().left - g.L) / g.pw;
+  scope.cur = fx >= 0 && fx <= 1 ? fx : null; drawScope();
+});
+$('#scopecv').addEventListener('mouseleave', () => { scope.cur = null; drawScope(); });
+
+async function scopeLoop() {
+  if (scope.looping) return;
+  scope.looping = true; scope.frames = 0; scope.t0 = performance.now();
+  try { while (scope.on) { if (isRoll()) await rollStep(); else await snapStep(); } }
+  finally { scope.looping = false; }
+}
+function busyMsg(d) { return d.busy ? 'scope busy: ' + d.error.replace('the scope is busy: ', '') : d.error; }
+function hystNow() {            // the AD3 trigger needs hysteresis above the noise, or the slope setting is ignored
+  const t = scfg.trig;
+  if (t === 'off' || !scope.last) return 0.1;
+  return Math.min(1, Math.max(0.05, Math.round(scope.last.ch[+t[0] - 1].stats.pp * 10) / 100));
+}
+async function snapStep() {
+  if (R.on) { await api('/api/roll/stop', {}); R.on = false; R.pts = []; R.seq = 0; }
+  if (scope.paused) { await sleep(100); return; }
+  const t = performance.now(), armed = scope.once;
+  const q = new URLSearchParams({window: scfg.tb, rng: scfg.rng.join(','), trig: scfg.trig, level: scfg.level, hyst: hystNow()});
+  if (armed && scfg.trig !== 'off') { q.set('wait', '10'); scope.msg = 'waiting for the trigger (up to 10 s)...'; drawScope(); }
+  const d = await api('/api/scope?' + q);
+  if (!scope.on) return;
+  if (armed) { scope.once = false; scope.paused = true; scopeUi(); }
+  if (d.ok && d.notrigger) scope.msg = d.message + ': the signal never crossed the level';
+  else if (d.ok) { scope.last = d; scope.msg = ''; scope.frames++; }
+  else scope.msg = busyMsg(d);
+  drawScope();
+  const fps = scope.frames / ((performance.now() - scope.t0) / 1000);
+  $('#scoperate').textContent = d.ok && d.rate ? `${fps.toFixed(1)} updates/s · ${(d.rate / 1e3).toFixed(d.rate < 1e5 ? 1 : 0)} kS/s · ${d.n} samples` : '';
+  await sleep(d.ok ? Math.max(0, 110 - (performance.now() - t)) : 1000);
+}
+async function rollStep() {
+  const key = scfg.rng.join(',');
+  if (!R.on || R.key !== key) {
+    const d = await api('/api/roll/start', {rng: scfg.rng});
+    if (!scope.on) { if (d.ok) await api('/api/roll/stop', {}); return; }
+    if (!d.ok) { scope.msg = busyMsg(d); drawScope(); await sleep(1000); return; }
+    R.on = true; R.key = key; R.pts = []; R.seq = 0; scope.msg = ''; scope.frames = 0; scope.t0 = performance.now();
+  }
+  const d = await api('/api/roll?since=' + R.seq);
+  if (!scope.on) return;
+  if (!d.ok) { scope.msg = busyMsg(d); drawScope(); await sleep(1000); return; }
+  if (d.seq < R.seq) { R.pts = []; }
+  R.pts.push(...d.points);
+  if (R.pts.length > 12500) R.pts.splice(0, R.pts.length - 12500);
+  R.seq = d.seq; R.info = d; R.srv = d.now; R.recv = performance.now(); scope.frames++;
+  if (!d.running) { R.on = false; scope.msg = d.error ? 'recorder stopped: ' + d.error : 'recorder stopped'; }
+  else scope.msg = '';
+  drawScope();
+  const lostPct = d.total + d.lost ? 100 * d.lost / (d.total + d.lost) : 0;
+  $('#scoperate').textContent = `roll: 10 ms windows · ${(d.rate / 1e3).toFixed(0)} kS/s · ${lostPct ? lostPct.toFixed(2) + '% lost' : 'no samples lost'}`;
+  await sleep(110);
+}
+
+// --- vertical scale of one channel (volts at screen centre and per division)
+const niceUp = x => { const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; };
+function chScale(k, lo, hi) {
+  const vs = scfg.vs[k];
+  if (vs === 'logic') return {c: 1.5, vdiv: 0.5};
+  if (vs === 'rail') return {c: 4, vdiv: 1};
+  if (vs !== 'auto') return {c: scfg.pos[k], vdiv: +vs};
+  if (!isFinite(lo) || !isFinite(hi)) return scope.auto[k] || {c: 0, vdiv: 1};
+  const prev = scope.auto[k], span = Math.max(hi - lo, 0.004);
+  if (prev && lo >= prev.c - 3.9 * prev.vdiv && hi <= prev.c + 3.9 * prev.vdiv && span > 1.6 * prev.vdiv) return prev;   // keep: no jitter
+  let vdiv, c;
+  if (scfg.ac[k]) { vdiv = niceUp(Math.max(Math.abs(lo), Math.abs(hi), 0.002) * 2.4 / 8); c = 0; }
+  else {
+    vdiv = niceUp(span * 1.3 / 8); c = Math.round((lo + hi) / 2 / vdiv) * vdiv;
+    while (lo < c - 3.9 * vdiv || hi > c + 3.9 * vdiv) vdiv = niceUp(vdiv * 1.01);
+    c = Math.round(c / vdiv) * vdiv;
+    while (lo < c - 3.9 * vdiv || hi > c + 3.9 * vdiv) { vdiv = niceUp(vdiv * 1.01); c = Math.round((lo + hi) / 2 / vdiv) * vdiv; }
+  }
+  return (scope.auto[k] = {c, vdiv});
+}
+const vdivText = v => (v >= 1 ? +v.toPrecision(3) + ' V' : +(v * 1000).toPrecision(3) + ' mV') + '/div';
+function tickText(v, vdiv) {
+  const d = Math.max(0, -Math.floor(Math.log10(vdiv) + 1e-9));
+  let t = v.toFixed(d); if (Math.abs(parseFloat(t) - v) > vdiv * 1e-3) t = v.toFixed(d + 2);
+  return (t === '-0' || /^-0\.?0*$/.test(t) ? t.slice(1) : t) + ' V';
+}
+
+// o: {x:[x0,x1], xticks, xfmt, chans:[{k,on,color,label,ac,pts,sc}], hl:[{k,y,color,label}], trigX, cur, msg, edges, tdiv}
+function scopePlot(cv, o) {
+  const pr = prep(cv); if (!pr) return;
+  const {ctx, w, h} = pr;
+  const L = 72, R_ = 72, T = 26, B = 28, pw = w - L - R_, ph = h - T - B;
+  scope.geom = {L, T, pw, ph};
+  ctx.clearRect(0, 0, w, h);
+  const [x0, x1] = o.x, X = x => L + (x - x0) / (x1 - x0) * pw;
+  ctx.font = '13px ' + css.getPropertyValue('--mono'); ctx.lineWidth = 1;
+  for (let j = 0; j <= 8; j++) {
+    const y = Math.round(T + ph * j / 8) + .5;
+    ctx.strokeStyle = j === 4 ? '#313c49' : COL.grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke();
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const v of o.xticks) {
+    const x = Math.round(X(v)) + .5;
+    ctx.strokeStyle = Math.abs(v) < 1e-12 ? '#313c49' : COL.grid; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke();
+    ctx.fillStyle = COL.axis; ctx.fillText(o.xfmt(v), Math.min(Math.max(x, L + 22), L + pw - 22), T + ph + 7);
+  }
+  for (const c of o.chans) {
+    if (!c.on) continue;
+    ctx.fillStyle = c.color; ctx.textBaseline = 'middle'; ctx.textAlign = c.k === 0 ? 'right' : 'left';
+    for (let j = 0; j <= 8; j++) ctx.fillText(tickText(c.sc.c + (j - 4) * c.sc.vdiv, c.sc.vdiv), c.k === 0 ? L - 7 : L + pw + 7, T + ph * (1 - j / 8));
+  }
+  const Yc = c => v => T + ph * (0.5 - (v - c.sc.c) / (c.sc.vdiv * 8));
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  for (const hl of (o.hl || [])) {
+    const c = o.chans[hl.k]; if (!c.on) continue;
+    const y = Math.round(Yc(c)(hl.y)) + .5;
+    ctx.strokeStyle = hl.color; ctx.globalAlpha = .7; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    if (hl.label) { ctx.fillStyle = hl.color; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(hl.label, L + pw - 4, y - 2); }
+  }
+  if (o.trigX !== undefined) {
+    const x = Math.round(X(o.trigX)) + .5;
+    ctx.strokeStyle = '#8b949e'; ctx.globalAlpha = .7; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  for (const c of o.chans) {
+    if (!c.on) continue;
+    const Y = Yc(c), clampY = y => Math.min(T + 3 * ph, Math.max(T - 2 * ph, y));
+    const runs = []; let cur = [];
+    for (const p of c.pts) { if (p === null) { if (cur.length) runs.push(cur); cur = []; } else cur.push(p); }
+    if (cur.length) runs.push(cur);
+    ctx.lineJoin = 'round';
+    for (const r of runs) {
+      ctx.beginPath();
+      r.forEach((p, i) => { const x = X(p[0]), y = clampY(Y(p[2])); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      for (let i = r.length - 1; i >= 0; i--) ctx.lineTo(X(r[i][0]), clampY(Y(r[i][1])));
+      ctx.closePath(); ctx.fillStyle = c.color; ctx.globalAlpha = o.edges ? .3 : .22; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c.color; ctx.lineWidth = o.edges ? 1.2 : 1.7;
+      if (o.edges) ctx.stroke();                                    // roll: outline the min/max band
+      else { ctx.beginPath(); r.forEach((p, i) => { const x = X(p[0]), y = clampY(Y((p[1] + p[2]) / 2)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
+      ctx.lineWidth = 1;
+    }
+  }
+  if (o.cur !== null) {
+    const x = Math.round(L + o.cur * pw) + .5;
+    ctx.strokeStyle = '#c9d1d9'; ctx.globalAlpha = .6; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  ctx.strokeStyle = '#38424f'; ctx.strokeRect(L + .5, T + .5, pw, ph);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.font = 'bold 13px system-ui, sans-serif';
+  let lx = L;
+  for (const c of o.chans) {
+    if (!c.on) continue;
+    const t = `CH${c.k + 1} ${c.label || ''}  ${vdivText(c.sc.vdiv)}${c.ac ? ' AC' : ''}`;
+    ctx.fillStyle = c.color; ctx.fillText(t, lx, 12); lx += ctx.measureText(t).width + 22;
+  }
+  ctx.fillStyle = COL.axis; ctx.textAlign = 'right'; ctx.fillText(o.tdiv, L + pw, 12);
+  if (o.msg) {
+    ctx.font = '18px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(o.msg).width + 30;
+    ctx.fillStyle = 'rgba(13,16,20,.85)'; ctx.fillRect(L + pw / 2 - tw / 2, T + ph / 2 - 20, tw, 40);
+    ctx.fillStyle = COL.text; ctx.fillText(o.msg, L + pw / 2, T + ph / 2);
+  }
+}
+
+const fmtV = v => (v === null || v === undefined || !isFinite(v)) ? '–' : v.toFixed(Math.abs(v) < 10 ? 3 : 2);
+function fmtF(f, approx) {
+  if (f === null || f === undefined) return '–';
+  return (approx ? '~' : '') + (f >= 1000 ? (f / 1000).toFixed(approx ? 2 : 3) + ' kHz' : f.toFixed(approx ? 0 : 1) + ' Hz');
+}
+
+// --- view builders: both return {x:[x0,x1], xticks, xfmt, tdiv, chans, stats:[...]|null, trigX, ...}
+function snapView() {
+  const d = scope.last, want = +scfg.tb;
+  const fresh = d && Math.abs(d.window - want) < 0.02 * want;
+  const W = fresh ? d.window : want;
+  const trigged = fresh && d.trig && !d.trig.auto;
+  const x0 = trigged ? -W / 2 : 0, x1 = x0 + W;
+  const xticks = Array.from({length: 11}, (_, i) => x0 + i * W / 10);
+  const chans = [0, 1].map(k => {
+    const c = {k, on: scfg.en[k], color: RAILCOL[k], label: scfg.labels[k], ac: scfg.ac[k], pts: [], sc: null};
+    let lo = Infinity, hi = -Infinity;
+    if (fresh) {
+      const s = d.ch[k].stats, off = c.ac ? s.mean : 0;
+      c.pts = envPts(d.ch[k].env, x0, x1, off, 1);
+      lo = s.min - off; hi = s.max - off;
+    }
+    c.sc = chScale(k, lo, hi);
+    return c;
+  });
+  const hl = [];
+  if (fresh) {
+    chans.forEach((c, k) => {
+      const lim = railLimits().find(r => r.name.toLowerCase() === (c.label || '').trim().toLowerCase());
+      if (lim && !c.ac) hl.push({k, y: lim.lo, color: c.color}, {k, y: lim.hi, color: c.color});
+      if (scfg.vs[k] === 'logic' && !c.ac) hl.push({k, y: LOGIC_TH, color: '#8b949e', label: '1.65 V'});
+    });
+    if (d.trig) { const k = d.trig.src; hl.push({k, y: d.trig.level - (chans[k].ac ? d.ch[k].stats.mean : 0), color: '#e8edf2', label: 'trigger'}); }
+  }
+  return {kind: 'snap', x: [x0, x1], xticks, xfmt: timeFmt(W), tdiv: fresh ? tdivText(W / 10) : '', chans, hl, edges: false,
+          trigX: trigged ? 0 : undefined, stats: fresh ? d.ch.map(c => c.stats) : null, d: fresh ? d : null, W,
+          msg: fresh ? '' : (scope.last ? 'switching time base...' : '')};
+}
+const tdivText = s => (s >= 1 ? +s.toPrecision(3) + ' s' : +(s * 1000).toPrecision(3) + ' ms') + '/div';
+function rollView(cv) {
+  const S = rollSpan(), tEnd = scope.paused ? scope.pausedAt : (R.on ? rollNow() : (R.pts.length ? R.pts[R.pts.length - 1][1] : 0));
+  const tStart = tEnd - S, cols = Math.max(60, Math.round((cv.clientWidth - 144) / 2));
+  const step = S <= 5 ? 0.5 : S <= 10 ? 1 : S <= 30 ? 5 : 10;
+  const xticks = []; for (let v = -S; v <= 1e-9; v += step) xticks.push(v);
+  const chans = [0, 1].map(k => {
+    const c = {k, on: scfg.en[k], color: RAILCOL[k], label: scfg.labels[k], ac: scfg.ac[k], pts: [], sc: null};
+    const base = 2 + 5 * k, b = new Map();
+    let lo = Infinity, hi = -Infinity;
+    for (const p of R.pts) {
+      if (p[1] < tStart || p[1] > tEnd) continue;
+      const off = c.ac ? p[base + 2] : 0, mn = p[base] - off, mx = p[base + 1] - off;
+      const i = Math.min(cols - 1, Math.floor((p[1] - tStart) / S * cols)), e = b.get(i);
+      if (!e) b.set(i, [mn, mx]); else { if (mn < e[0]) e[0] = mn; if (mx > e[1]) e[1] = mx; }
+      if (mn < lo) lo = mn; if (mx > hi) hi = mx;
+    }
+    let last = -99;
+    for (const [i, e] of [...b.entries()].sort((a, z) => a[0] - z[0])) {
+      if (i - last > 4 && last >= 0) c.pts.push(null);
+      c.pts.push([-S + (i + .5) / cols * S, e[0], e[1]]); last = i;
+    }
+    c.sc = chScale(k, lo, hi);
+    return c;
+  });
+  const hl = [];
+  chans.forEach((c, k) => {
+    const lim = railLimits().find(r => r.name.toLowerCase() === (c.label || '').trim().toLowerCase());
+    if (lim && !c.ac) hl.push({k, y: lim.lo, color: c.color}, {k, y: lim.hi, color: c.color});
+    if (scfg.vs[k] === 'logic' && !c.ac) hl.push({k, y: LOGIC_TH, color: '#8b949e', label: '1.65 V'});
+  });
+  // readouts: the last 0.2 s (20 windows) before the right edge
+  const recent = R.pts.filter(p => p[1] > tEnd - 0.2 && p[1] <= tEnd);
+  const stats = recent.length ? [0, 1].map(k => {
+    const base = 2 + 5 * k, n = recent.length;
+    const M = recent.reduce((a, p) => a + p[base + 2], 0) / n;
+    const mn = Math.min(...recent.map(p => p[base])), mx = Math.max(...recent.map(p => p[base + 1]));
+    const v = recent.reduce((a, p) => a + p[base + 3] ** 2 + (p[base + 2] - M) ** 2, 0) / n, ac = Math.sqrt(v);
+    const rcs = recent.map(p => p[base + 4]), rc = rcs.reduce((a, x) => a + x, 0), rm = rc / n;
+    const sd = Math.sqrt(rcs.reduce((a, x) => a + (x - rm) ** 2, 0) / n);
+    const steady = n >= 10 && rm >= 2 && rcs.filter(x => x === 0).length <= 0.1 * n && sd <= 0.3 * rm;   // not noise, not a lone edge
+    return {mean: M, min: mn, max: mx, pp: mx - mn, rms: Math.sqrt(ac * ac + M * M), acrms: ac,
+            freq: steady ? rc / (n * 0.01) : null, logic: mn >= LOGIC_TH ? 'HIGH' : mx < LOGIC_TH ? 'LOW' : 'EDGES', approx: true};
+  }) : null;
+  return {kind: 'roll', x: [-S, 0], xticks, xfmt: v => v === 0 ? 'now' : v.toFixed(S < 5 ? 1 : 0) + ' s', tdiv: tdivText(S / 10),
+          chans, hl, edges: true, stats, tEnd, S, msg: R.pts.length ? '' : (scope.on ? 'starting the recorder...' : '')};
+}
+
+function cursorReadout(v, fx) {
+  if (fx === null) return 'Hover over the graph for a cursor readout (time and volts per channel).';
+  const x = v.x[0] + fx * (v.x[1] - v.x[0]);
+  let h = v.kind === 'roll'
+    ? `t = ${x.toFixed(2)} s (${clock(v.tEnd + x)})`
+    : `t = ${timeFmt(v.W)(x, v.W / 10)}${v.trigX !== undefined ? ' (0 = trigger)' : ' (from the start)'}`;
+  for (const c of v.chans) {
+    if (!c.on) continue;
+    const pts = c.pts.filter(p => p !== null);
+    let best = null, bd = Infinity;
+    for (const p of pts) { const dd = Math.abs(p[0] - x); if (dd < bd) { bd = dd; best = p; } }
+    const span = v.x[1] - v.x[0];
+    if (!best || bd > span / 40) { h += `  <span class="c${c.k + 1}">${esc(c.label || 'CH' + (c.k + 1))}: –</span>`; continue; }
+    const mid = (best[1] + best[2]) / 2, wide = best[2] - best[1] > 0.02 * c.sc.vdiv * 8;
+    h += `  <span class="c${c.k + 1}">${esc(c.label || 'CH' + (c.k + 1))}${c.ac ? ' (AC)' : ''}: ${fmtV(mid)} V${v.kind === 'roll' || wide ? ` [${fmtV(best[1])} .. ${fmtV(best[2])}]` : ''}</span>`;
+  }
+  return h;
+}
+
+function drawScope() {
+  const cv = $('#scopecv');
+  const v = isRoll() ? rollView(cv) : snapView();
+  scope.view = v;
+  scopePlot(cv, {x: v.x, xticks: v.xticks, xfmt: v.xfmt, chans: v.chans, hl: v.hl, trigX: v.trigX, cur: scope.cur,
+                 msg: scope.msg || v.msg || (scope.paused ? 'paused' : ''), edges: v.edges, tdiv: v.tdiv});
+  $('#cursor').innerHTML = cursorReadout(v, scope.cur);
+  const rails = railLimits(), rows = [];
+  v.chans.forEach((c, k) => {
+    if (!c.on) return;
+    const s = v.stats && v.stats[k];
+    const name = `<td class="name c${k + 1}">${esc(c.label || 'CH' + (k + 1))}</td>`;
+    if (!s) { rows.push(`<tr>${name}<td colspan="9" class="small dim">no data yet</td></tr>`); return; }
+    const lim = rails.find(r => r.name.toLowerCase() === (c.label || '').trim().toLowerCase());
+    const chips = [];
+    if (lim) chips.push(`<span class="chip ${s.mean >= lim.lo && s.mean <= lim.hi ? 'pass' : 'fail'}">${s.mean >= lim.lo && s.mean <= lim.hi ? 'IN LIMITS' : (s.mean < 1 ? 'NO RAIL' : 'OUT')}</span>`);
+    if (v.d && v.d.ch[k].clipped) chips.push('<span class="chip check">CLIPPED</span>');
+    const lg = s.logic === 'HIGH' ? 'pass' : s.logic === 'EDGES' ? 'check' : '';
+    rows.push(`<tr>${name}<td>${fmtV(s.mean)}</td><td>${fmtV(s.min)}</td><td>${fmtV(s.max)}</td><td>${fmtV(s.pp)}</td>
+      <td>${fmtV(s.rms)}</td><td>${fmtV(s.acrms)}</td><td class="small">${fmtF(s.freq, s.approx)}</td>
+      <td><span class="chip ${lg}" title="${s.duty !== undefined ? 'high ' + s.duty.toFixed(0) + ' % of the time, ' : ''}threshold 1.65 V">${s.logic}</span></td><td>${chips.join(' ')}</td></tr>`);
+  });
+  $('#scopestats tbody').innerHTML = rows.join('');
+  let note;
+  if (v.kind === 'roll') {
+    const i = R.info;
+    note = `Strip chart: every 10 ms window is drawn as its min to max band, so a tone shows as a thick band and silence as a thin line. Readouts are the last 0.2 s (frequency from edge counts, about ±5 Hz, shown only for a steady signal above about 200 Hz).` +
+      (i ? ` Input: ${i.fine.map((f, k) => `CH${k + 1} ${f ? '5 V fine centred on ' + i.centre[k].toFixed(2) + ' V' : '50 V'}`).join(', ')}.` : '') +
+      (R.info && R.info.clip_t && Date.now() / 1000 - Math.max(...R.info.clip_t) < 3 ? ' CLIPPING: pick Input 50 V.' : '');
+  } else if (v.d) {
+    const t = v.d.trig;
+    note = v.d.ch.map((c, k) => `CH${k + 1}: ${c.note}`).join(' · ') +
+      (t ? ` · trigger CH${t.src + 1} ${t.slope === 'r' ? 'rising' : 'falling'} at ${t.level.toFixed(2)} V (absolute, hysteresis ${t.hyst.toFixed(2)} V): ${t.auto ? 'NO EDGE FOUND, free running' : 'locked'}` : ' · no trigger (free run)');
+  } else note = '';
+  $('#scopenote').textContent = note;
+}
+
+// ======================================================================= rail watch
+const W = {pts: [], seq: 0, info: null, timer: null};
+async function watchPoll(full) {
+  const d = await api('/api/watch?since=' + (full ? 0 : W.seq));
+  if (!d.ok) { $('#watchinfo').textContent = d.error; return; }
+  if (full || d.seq < W.seq) W.pts = [];
+  W.pts.push(...d.points);
+  if (W.pts.length > 90000) W.pts.splice(0, W.pts.length - 90000);
+  W.seq = d.seq; W.info = d;
+  watchUi(d.running);
+  drawWatch();
+}
+function watchUi(running) {
+  $('#watchstart').disabled = running; $('#watchstop').disabled = !running;
+  clearInterval(W.timer); W.timer = running ? setInterval(() => watchPoll(false), 700) : null;
+}
+function drawWatch() {
+  const d = W.info; if (!d) return;
+  const span = +$('#watchspan').value, pts = W.pts;
+  const tEnd = pts.length ? Math.max(pts[pts.length - 1][1], d.running ? Date.now() / 1000 : 0) : Date.now() / 1000;
+  const tStart = span ? tEnd - span : (pts.length ? pts[0][1] : tEnd - 60);
+  const vis = pts.filter(p => p[1] >= tStart);
+  const cvs = [$('#watchcv5'), $('#watchcv3')], rails = STEPS.find(s => s.id === 'D').rails;
+  const cols = Math.max(50, cvs[0].clientWidth - 80);
+  [0, 1].forEach(k => {
+    // per-pixel min/max, a gap where the record stopped
+    const b = new Map();
+    for (const p of vis) {
+      const i = Math.floor((p[1] - tStart) / (tEnd - tStart) * cols);
+      const mn = p[2 + 3 * k], mx = p[3 + 3 * k], e = b.get(i);
+      if (!e) b.set(i, [p[1], mn, mx, p[1]]); else { e[1] = Math.min(e[1], mn); e[2] = Math.max(e[2], mx); e[3] = p[1]; }
+    }
+    const series = []; let lastT = null;
+    for (const [, e] of [...b.entries()].sort((a, c) => a[0] - c[0])) {
+      if (lastT !== null && e[0] - lastT > 0.6) series.push(null);
+      series.push([(e[0] + e[3]) / 2, e[1], e[2]]); lastT = e[3];
+    }
+    let lo = Infinity, hi = -Infinity; for (const s of series) if (s) { lo = Math.min(lo, s[1]); hi = Math.max(hi, s[2]); }
+    const r = rails[k];
+    if (isFinite(lo) && lo > r.lo - 1 && hi < r.hi + 1) { lo = Math.min(lo, r.lo); hi = Math.max(hi, r.hi); }
+    const y = isFinite(lo) ? autoRange(lo, hi, 0.1) : [r.lo - 0.3, r.hi + 0.3];
+    const xs = tEnd - tStart, steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200];
+    const st = steps.find(s => xs / s <= Math.max(2, cvs[k].clientWidth / 110)) || 7200;
+    const ticks = []; for (let t = Math.ceil(tStart / st) * st; t <= tEnd; t += st) ticks.push(t);
+    plot(cvs[k], {x: [tStart, tEnd], y, xticks: ticks, xfmt: t => clock(t), yfmt: vFmt,
+      title: r.name, titleColor: RAILCOL[k], series: [{color: RAILCOL[k], pts: series}],
+      hlines: [{y: r.lo, color: RAILCOL[k]}, {y: r.hi, color: RAILCOL[k]}, {y: d.dip_below[k], color: COL.fail, label: 'dip ' + d.dip_below[k].toFixed(2) + ' V'}],
+      msg: series.length ? '' : (d.running ? 'collecting...' : 'press Start')});
+  });
+  const evs = d.events || [];
+  $('#watchstats tbody').innerHTML = [0, 1].map(k => {
+    const lo = d.lowest[k], hi = d.highest[k], n = evs.filter(e => e.ch === k).length;
+    return `<tr><td class="name c${k + 1}">${rails[k].name}</td><td>${lo ? fmt(lo[0]) : '–'}</td><td class="small">${lo ? clock(lo[1]) : ''}</td>
+      <td>${hi ? fmt(hi[0]) : '–'}</td><td>${n}${n ? '' : ''}</td><td class="small">${d.dip_below[k].toFixed(2)} V</td></tr>`;
+  }).join('');
+  $('#watchevents').innerHTML = evs.slice(-12).reverse().map(e =>
+    `<div><span class="c${e.ch + 1}">${e.rail}</span> dip to ${e.min.toFixed(3)} V at ${clock(e.t0)}, lasted ${Math.max(0.08, e.t1 - e.t0).toFixed(2)} s</div>`).join('');
+  const run = d.started ? (d.running ? Date.now() / 1000 : (pts.length ? pts[pts.length - 1][1] : d.started)) - d.started : 0;
+  const cover = d.total ? 100 * (1 - d.lost / (d.total + d.lost)) : 100;
+  $('#watchinfo').textContent = (d.error ? 'ERROR: ' + d.error + ' · ' : '') +
+    `${d.running ? 'running' : 'stopped'} ${Math.floor(run / 60)}:${String(Math.floor(run % 60)).padStart(2, '0')} · ${pts.length} windows · ${cover.toFixed(cover < 100 ? 2 : 0)}% of samples kept`;
+}
+$('#watchstart').addEventListener('click', async () => {
+  if (scope.on) await stopScope();
+  const d = await api('/api/watch/start', {});
+  if (!d.ok) { $('#watchinfo').textContent = d.error; return; }
+  watchPoll(true);
+});
+$('#watchstop').addEventListener('click', async () => { await api('/api/watch/stop', {}); watchPoll(false); });
+$('#watchclear').addEventListener('click', async () => { await api('/api/watch/clear', {}); W.pts = []; W.seq = 0; watchPoll(true); });
+$('#watchspan').addEventListener('change', drawWatch);
+
+// ======================================================================= UART console
+const U = {mark: null, timer: null, text: ''};
+function clean(s) { return s.replace(/\r\n?/g, '\n').replace(/[^\n\t\x20-\x7e]/g, '·'); }
+function uartUi(running, baud) {
+  $('#uartstart').disabled = running; $('#uartstop').disabled = !running;
+  if (baud) $('#baud').value = String(baud);
+  clearInterval(U.timer); U.timer = running ? setInterval(uartPoll, 250) : null;
+}
+async function uartPoll() {
+  const d = await api('/api/uart' + (U.mark === null ? '' : '?since=' + U.mark));
+  if (!d.ok) { $('#uartinfo').textContent = d.error; return; }
+  if (d.text) {
+    const pre = $('#console'), atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+    U.text += clean(d.text); if (U.text.length > 200000) U.text = U.text.slice(-150000);
+    pre.textContent = U.text;
+    if ($('#autoscroll').checked || atEnd) pre.scrollTop = pre.scrollHeight;
+  }
+  U.mark = d.end;
+  $('#uartinfo').textContent = (d.error ? 'ERROR: ' + d.error + ' · ' : '') +
+    `${d.running ? 'listening' : 'stopped'} · DIO${d.pin} · ${d.baud} baud · ${d.end} bytes` +
+    (d.overflows ? ` · ${d.overflows} overflows` : '') + (d.parity_errors ? ` · ${d.parity_errors} framing/parity errors` : '');
+  if (!d.running && U.timer) uartUi(false);
+}
+$('#uartstart').addEventListener('click', async () => {
+  const d = await api('/api/uart/start', {baud: +$('#baud').value, pin: 0});
+  if (!d.ok) { $('#uartinfo').textContent = d.error; return; }
+  uartUi(true); uartPoll();
+});
+$('#baud').addEventListener('change', async () => { if (!$('#uartstart').disabled) return; await api('/api/uart/start', {baud: +$('#baud').value, pin: 0}); });
+$('#uartstop').addEventListener('click', async () => { await api('/api/uart/stop', {}); uartUi(false); uartPoll(); });
+$('#uartclear').addEventListener('click', async () => { await api('/api/uart/clear', {}); U.text = ''; $('#console').textContent = ''; });
+$('#uartself').addEventListener('click', async () => {
+  const d = await api('/api/uart/selftest', {});
+  const line = d.ok ? `[self-test ${d.pass ? 'PASSED' : 'FAILED'}: sent and read back on DIO${d.pin} at ${d.baud} baud${d.pass ? '' : ', got "' + clean(d.got) + '"'}]\n`
+                    : `[self-test error: ${d.error}]\n`;
+  U.text += line; $('#console').textContent = U.text; $('#console').scrollTop = 1e9;
+});
+
+// ======================================================================= header, status, reset
+async function statusPoll() {
+  const d = await api('/api/status');
+  const dot = $('#devdot'), txt = $('#devtext');
+  if (!d.ok) { dot.className = 'dot bad'; txt.textContent = d.error; return; }
+  const v = d.device;
+  if (v.open) { dot.className = 'dot ok'; txt.textContent = `${v.name} ${v.sn.replace('SN:', '')} connected`; }
+  else if (v.present && !v.error) { dot.className = 'dot warn'; txt.textContent = 'AD3 present, opens on first use'; }
+  else if (v.present) { dot.className = 'dot warn'; txt.textContent = v.error; }
+  else { dot.className = 'dot bad'; txt.textContent = 'AD3 not found: plug it in'; }
+  $('#savedto').textContent = 'saved to ' + d.results;
+  if (d.watch !== $('#watchstart').disabled) watchPoll(false);
+  if (d.roll && !scope.on && !R.on) api('/api/roll/stop', {});       // a recorder left over from a closed tab
+  if (d.uart !== $('#uartstart').disabled && !boot.active) uartUi(d.uart, d.uart_baud);
+}
+$('#release').addEventListener('click', async () => {
+  if (scope.on) await stopScope();
+  const d = await api('/api/device/release', {});
+  $('#devtext').textContent = d.ok ? 'released: WaveForms can use it now' : d.error;
+  uartUi(false); watchPoll(false);
+});
+$('#resetrun').addEventListener('click', async () => {
+  if (!confirm('Start a new run? The current results are archived in hardware/bench/runs/ and every step is cleared.')) return;
+  const d = await api('/api/results/reset', {});
+  if (!d.ok) { alert(d.error); return; }
+  await loadResults();
+});
+async function loadResults() {
+  const d = await api('/api/results');
+  if (d.ok) { state.steps = d.steps || {}; state.run_started = d.run_started; }
+  else { $('#steps').innerHTML = `<div class="errbox">${esc(d.error)}</div>`; return; }
+  $('#runinfo').textContent = state.run_started ? 'run started ' + new Date(state.run_started).toLocaleString() : 'new run';
+  buildSteps();
+}
+
+let resizeT = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => {
+    drawScope(); drawWatch();
+    for (const step of STEPS) if (step.auto) redrawAuto(step, document.getElementById('step-' + step.id));
+  }, 150);
+});
+scopeUi();
+loadResults();
+drawScope();
+watchPoll(true);
+uartPoll();
+statusPoll(); setInterval(statusPoll, 3000);
+window.addEventListener('pagehide', () => { if (R.on) navigator.sendBeacon('/api/roll/stop', '{}'); });
+</script>
+</body>
+</html>

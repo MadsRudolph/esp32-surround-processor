@@ -1,0 +1,6 @@
+# Keep the decoder's code and tables in RAM. From flash they go through the ESP32's
+# small instruction/data cache, and the decoder's inner loops then stall on cache misses.
+[mapping:liba52]
+archive: libliba52.a
+entries:
+    * (noflash)

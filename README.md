@@ -30,6 +30,7 @@ both ports -> 2x PCM5102A in 3-wire BCK-PLL mode -> line out.
 | `tools/impedance.py` | Impedance of the traces over the ground plane, and the series termination it implies. |
 | `tools/build_notes.py` | Generates `hardware/BUILD-NOTES.md`. |
 | `tools/make_coupon.py` / `export_production.sh` | The coupon, and the production files. |
+| `tools/bench_server.py` / `bench_page.html` / `bench.py` | Bench page (AD3 scope, rail watch, UART, test procedure) and its terminal fallback. See Bench. |
 | `tools/kpy.py` | Launcher that patches this KiCad build's pcbnew iterator bug. |
 
 ## Rebuilding
@@ -54,6 +55,23 @@ python3 tools/kpy.py tools/build_notes.py hardware/surround.kicad_pcb
 
 The layout script uses the `kicad-schematic` skill's drawing DSL
 (`~/.claude/skills/kicad-schematic/scripts`).
+
+## Bench
+
+Bring-up runs from a local page that is both the test procedure and the Analog
+Discovery 3's display: live scope on both rails (DC and a high-resolution ripple view),
+rail check, ripple, a rail watch for brown-outs, and a UART console on J2 TX. Start it
+and open <http://127.0.0.1:8791/>:
+
+```bash
+python3 tools/bench_server.py
+```
+
+The server owns the AD3 (close WaveForms first, or press *Release AD3* on the page to
+hand it back). Results are saved to `hardware/bench/results.json`; *Reset run* archives
+them in `hardware/bench/runs/`. The steps are one array, `STEPS`, at the top of the
+script in `tools/bench_page.html`. `tools/bench.py` still does the same checks from the
+terminal when the server is not running.
 
 ## Fabrication and the rules that follow from it
 
@@ -125,6 +143,53 @@ A 101.9 x 73.3 mm double-sided board, parts on a 1.27 mm grid:
 
 Module straps are in `hardware/BUILD-NOTES.md`.
 
+## Firmware
+
+ESP-IDF v5.5, in `firmware/`. Three projects share the components in `firmware/components/`.
+
+| Path | What |
+|---|---|
+| `firmware/surround/` | **The firmware.** Dolby Digital 5.1 and stereo matrix decoding to four outputs. |
+| `firmware/passthrough/` | Bring-up: the DIR9001's stereo straight to both DACs. |
+| `firmware/boardtest/` | Bring-up without the DIR9001: the ESP32 makes the clocks and plays a 1 kHz tone on one output at a time. |
+| `firmware/components/netota/` | Wi-Fi, over-the-air update with rollback, `/status` and `/set` over HTTP. |
+| `firmware/components/dolby/` | Finds IEC 61937 bursts in the S/PDIF data and maps decoded 5.1 to four speakers. Plain C, also built on a PC by `tools/dolby_test.sh`. |
+| `firmware/components/liba52/` | liba52 0.7.4, the AC-3 decoder. **GPL-2.0-or-later** (see `COPYING` there), so firmware built with it is GPL. One change from the original, noted in its `CMakeLists.txt`. |
+| `firmware/components/esp_driver_i2s/` | ESP-IDF's I2S driver with one fix (below). Overrides the IDF copy. |
+
+What `firmware/surround` does:
+
+- **Dolby Digital (AC-3) bitstream:** decoded on the ESP32. Centre is folded into the fronts, the
+  LFE channel is added to both fronts (the subwoofer is fed from them), surround left and right go
+  straight to the rear outputs. About 5 ms of decode per 32 ms frame at 240 MHz.
+- **Stereo PCM:** fronts untouched; rear = 0.5 x (L - R), high-pass 100 Hz, low-pass 7 kHz, 20 ms
+  delay, the same signal to both rears.
+- **DTS, Dolby Digital Plus:** recognised and kept silent.
+- Volume on the pot (J7), mute on USER, mode on BOOT. It starts muted.
+
+```bash
+cp firmware/wifi_secrets.h.example firmware/wifi_secrets.h   # then fill it in; it is not in git
+. ~/esp/esp-idf/export.sh
+idf.py -C firmware/surround build
+tools/ota.sh surround            # build and flash over Wi-Fi (the first flash goes over J2)
+tools/dolby_test.sh film.mkv     # run the parser and decoder on a PC against any AC-3 track
+```
+
+Two faults found during bring-up, both heard as loud clicks:
+
+- **Data lines driven too hard.** At the ESP32's default drive strength the two I2S data outputs
+  disturbed the shared clock lines whenever both switched together, and the DACs misread bits.
+  The firmware sets `GPIO_DRIVE_CAP_0` on both; clicks start at `CAP_2` and are severe at `CAP_3`.
+- **A lost-interrupt bug in ESP-IDF's I2S driver** (v5.5, classic ESP32, full duplex): the RX and
+  TX handlers share one interrupt and each cleared every pending flag, so one erased the other's
+  event and a 5 ms buffer went missing. Fixed in `firmware/components/esp_driver_i2s`.
+
+And one in liba52: its FFT kept temporaries in `double`, which the ESP32 computes in software. As
+`float` the decode time fell from 21 ms to under 5 ms per frame.
+
+The debug page (`tools/debug_page.html`, served by the bench server at `/debug`) shows the input
+format, levels and decoder health live, and has a per-speaker test (chime or sine sweep).
+
 ## Status
 
 - [x] Design review
@@ -135,6 +200,7 @@ Module straps are in `hardware/BUILD-NOTES.md`.
 - [x] Laser silkscreen
 - [x] Production files; SRM-CAM builds the double-sided job from them (about 1 h 40 min)
 - [x] DAC modules measured; DIR9001 pinout from the seller's drawing
-- [ ] Cut and meter the WROOM coupon
-- [ ] Cut the board
-- [ ] Firmware (ESP-IDF v5.3, `driver/i2s_std.h`, liba52 for AC-3)
+- [x] Board cut, soldered and brought up: rails, all four outputs, DIR9001 input (`hardware/bench/results.json`)
+- [x] Firmware: stereo matrix and Dolby Digital 5.1, tested with the TV on four speakers
+- [ ] The XSMT mute line does not mute the DAC modules (their own strap is probably still fitted); mute is done in the data
+- [ ] Own AC-3 decoder in place of liba52
