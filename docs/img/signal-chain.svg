@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" font-family="IBM Plex Sans, system-ui, sans-serif">
+  <rect width="1200" height="420" fill="#fbfaf7"/>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#333"/></marker></defs>
+  <g fill="#fff" stroke="#333" stroke-width="2">
+    <rect x="20" y="150" width="130" height="80" rx="6"/>
+    <rect x="210" y="150" width="170" height="80" rx="6"/>
+    <rect x="450" y="60" width="300" height="300" rx="6"/>
+    <rect x="830" y="80" width="150" height="80" rx="6"/>
+    <rect x="830" y="260" width="150" height="80" rx="6"/>
+  </g>
+  <g fill="#f1eee6" stroke="#333" stroke-width="1.5">
+    <rect x="475" y="110" width="250" height="56" rx="4"/>
+    <rect x="475" y="182" width="250" height="56" rx="4"/>
+    <rect x="475" y="254" width="250" height="56" rx="4"/>
+  </g>
+  <g font-size="19" font-weight="600" text-anchor="middle" fill="#111">
+    <text x="85" y="186">TV</text>
+    <text x="295" y="182">DIR9001</text>
+    <text x="600" y="92">ESP32</text>
+    <text x="905" y="116">PCM5102</text>
+    <text x="905" y="296">PCM5102</text>
+  </g>
+  <g font-size="15" text-anchor="middle" fill="#444">
+    <text x="85" y="208">optical out</text>
+    <text x="295" y="204">S/PDIF receiver</text>
+    <text x="295" y="222">makes the clocks</text>
+    <text x="600" y="134">find Dolby Digital bursts</text>
+    <text x="600" y="154">(IEC 61937)</text>
+    <text x="600" y="206">AC-3 decoder: 5.1 to 4.0</text>
+    <text x="600" y="226">about 5 ms per 32 ms frame</text>
+    <text x="600" y="278">stereo: matrix 0.5 (L − R)</text>
+    <text x="600" y="298">100 Hz – 7 kHz, 20 ms delay</text>
+    <text x="905" y="140">front DAC</text>
+    <text x="905" y="320">surround DAC</text>
+  </g>
+  <g stroke="#333" stroke-width="2" fill="none" marker-end="url(#a)">
+    <path d="M150 190H208"/><path d="M380 190H448"/>
+    <path d="M750 120H828"/><path d="M750 300H828"/>
+    <path d="M980 105H1060"/><path d="M980 135H1060"/>
+    <path d="M980 285H1060"/><path d="M980 315H1060"/>
+  </g>
+  <path d="M295 230V390H905V342" stroke="#888" stroke-width="2" stroke-dasharray="7 5" fill="none" marker-end="url(#a)"/>
+  <path d="M905 390V400H1010V200H905V162" stroke="#888" stroke-width="2" stroke-dasharray="7 5" fill="none" marker-end="url(#a)"/>
+  <path d="M600 390V362" stroke="#888" stroke-width="2" stroke-dasharray="7 5" fill="none" marker-end="url(#a)"/>
+  <g font-size="15" fill="#444">
+    <text x="164" y="180">light</text><text x="392" y="180">data</text>
+    <text x="1070" y="110">front left</text><text x="1070" y="140">front right</text>
+    <text x="1070" y="290">rear left</text><text x="1070" y="320">rear right</text>
+    <text x="330" y="410" fill="#666">bit clock and word clock: the receiver drives them, the ESP32 and both DACs follow</text>
+  </g>
+</svg>

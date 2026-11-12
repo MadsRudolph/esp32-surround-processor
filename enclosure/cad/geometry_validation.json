@@ -1,0 +1,60 @@
+{
+  "Base": {
+    "valid": true,
+    "solids": 1,
+    "volume_cm3": 114.92,
+    "dimensions_mm": [
+      143.12,
+      116.8,
+      52.1
+    ]
+  },
+  "Lid_Plate": {
+    "valid": true,
+    "solids": 1,
+    "volume_cm3": 62.56,
+    "dimensions_mm": [
+      142.12,
+      115.8,
+      4.0
+    ]
+  },
+  "User_Button": {
+    "valid": true,
+    "solids": 1,
+    "volume_cm3": 1.32,
+    "dimensions_mm": [
+      10.5,
+      10.5,
+      40.0
+    ]
+  },
+  "lasercut": {
+    "files": [
+      "lasercut/Lid_Plate_4mm_acrylic.dxf",
+      "lasercut/Lid_Plate_4mm_acrylic.svg"
+    ],
+    "plate_mm": [
+      142.12,
+      115.8,
+      4.0
+    ],
+    "kerf_compensated_mm": 0.2,
+    "entities": {
+      "CUT": 47,
+      "ENGRAVE": 150,
+      "LED_OPTIONAL": 2
+    }
+  },
+  "rear_bay_mm": 28.0,
+  "outside_mm": [
+    143.12,
+    116.8,
+    56.1
+  ],
+  "inside_mm": [
+    138.32,
+    112.0,
+    49.7
+  ]
+}

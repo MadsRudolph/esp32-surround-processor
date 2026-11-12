@@ -50,6 +50,24 @@ td:first-child { color: var(--muted); }
 .btns button:hover { background: #344050; }
 .btns button.active { background: #1f6f3a; border-color: #2c8a4c; }
 .btns button.off { background: #45201f; border-color: #7a2a28; }
+
+details.card > summary { cursor: pointer; list-style: none; font-size: 15px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "\25B8"; display: inline-block; width: 22px; color: var(--text); }
+details.card[open] > summary::before { content: "\25BE"; }
+details.card[open] > summary { margin-bottom: 12px; }
+.setup ol { list-style: none; counter-reset: st; margin: 0; padding: 0; }
+.setup ol > li { counter-increment: st; position: relative; padding: 4px 0 14px 46px; border-top: 1px solid var(--line); margin-top: 10px; }
+.setup ol > li::before { content: counter(st); position: absolute; left: 0; top: 8px; width: 32px; height: 32px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+.setup li h3 { margin: 4px 0 4px; font-size: 18px; }
+.setup p { margin: 6px 0; } .setup ul { margin: 6px 0; padding-left: 22px; }
+.setup svg { width: 100%; height: auto; display: block; margin: 10px 0 6px; }
+.setup svg text { font-family: system-ui, sans-serif; fill: var(--text); }
+.setup pre { background: #0f1318; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 8px 0; overflow-x: auto; font: 15px/1.5 var(--mono); }
+.setup code { font-family: var(--mono); font-size: 15px; background: #0f1318; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+.setup pre code { border: 0; padding: 0; background: none; }
+.setup .note { background: var(--panel2); border-left: 4px solid var(--warn); border-radius: 6px; padding: 9px 14px; margin: 10px 0; }
+.setup .status { background: var(--panel2); border-left: 4px solid var(--fail); border-radius: 6px; padding: 9px 14px; margin: 0 0 6px; }
 </style>
 </head>
 <body>
@@ -156,6 +174,111 @@ td:first-child { color: var(--muted); }
       <tr><td>Address</td><td id="host">--</td></tr>
     </table>
   </section>
+
+  <details class="card c12 setup" id="bench-setup">
+    <summary>Bench setup: the AD3 in place of the TV</summary>
+    <div class="status">Not yet proven on this board: that the DIR9001 locks to the AD3's signal. The generator itself passes its self-test.</div>
+    <ol>
+      <li>
+        <h3>Move and power</h3>
+        <p>Put the board on the bench and power it from the bench supply: 9 V, current limit 0.5 A. On the DIR9001 module (the green board stacked on top, marked "LHY AUDIO DIR9001-I2S"), flip the toggle switch to the coax input.</p>
+      </li>
+      <li>
+        <h3>Make the cable</h3>
+        <p>Take a spare RCA cable and cut one end off. Inside are a centre conductor and a shield. The RCA plug at the other end goes into the red RCA jack on the DIR9001 module.</p>
+      </li>
+      <li>
+        <h3>Three resistors, wired at the cut end</h3>
+        <p>All three are from home stock. Wire them like this:</p>
+        <svg viewBox="0 0 880 330" role="img" aria-label="Wiring: AD3 DIO 1 goes through two 681 ohm resistors in parallel to the RCA centre conductor; a 115 ohm resistor joins the centre conductor to the shield; AD3 GND goes to the shield">
+          <!-- AD3 -->
+          <rect x="14" y="40" width="130" height="250" rx="10" fill="#1c2129" stroke="#3a4553" stroke-width="2"/>
+          <text x="79" y="70" text-anchor="middle" font-size="18" font-weight="700">AD3</text>
+          <text x="79" y="92" text-anchor="middle" font-size="15" fill="#98a4b0">pattern out</text>
+          <text x="79" y="268" text-anchor="middle" font-size="15" fill="#98a4b0">ground</text>
+          <!-- AD3 wires -->
+          <path d="M144 150 H230" stroke="#e3b341" stroke-width="4" fill="none"/>
+          <path d="M144 250 H620" stroke="#98a4b0" stroke-width="4" fill="none"/>
+          <text x="152" y="140" font-size="16" font-weight="600" style="fill:#e3b341">DIO 1</text>
+          <text x="152" y="276" font-size="16" font-weight="600" style="fill:#98a4b0">GND wire</text>
+          <!-- parallel pair -->
+          <g stroke="#e3b341" stroke-width="4" fill="none">
+            <path d="M230 150 V100 H270"/><path d="M230 150 V200 H270"/>
+            <path d="M370 100 H410 V150"/><path d="M370 200 H410 V150"/>
+            <path d="M410 150 H620"/>
+          </g>
+          <circle cx="230" cy="150" r="5" fill="#e3b341"/><circle cx="410" cy="150" r="5" fill="#e3b341"/>
+          <g fill="#2a2018" stroke="#e3b341" stroke-width="2.5">
+            <rect x="270" y="86" width="100" height="28" rx="6"/><rect x="270" y="186" width="100" height="28" rx="6"/>
+          </g>
+          <text x="320" y="76" text-anchor="middle" font-size="17" font-weight="600">681 &#937;</text>
+          <text x="320" y="238" text-anchor="middle" font-size="17" font-weight="600">681 &#937;</text>
+          <text x="320" y="150" text-anchor="middle" font-size="15" style="fill:#98a4b0">in parallel</text>
+          <text x="500" y="136" text-anchor="middle" font-size="17" font-weight="600">= 340 &#937;</text>
+          <!-- 115 ohm to shield -->
+          <path d="M620 150 V176" stroke="#e3b341" stroke-width="4" fill="none"/>
+          <rect x="606" y="176" width="28" height="44" rx="6" fill="#2a2018" stroke="#e3b341" stroke-width="2.5"/>
+          <path d="M620 220 V250" stroke="#98a4b0" stroke-width="4" fill="none"/>
+          <circle cx="620" cy="150" r="5" fill="#e3b341"/><circle cx="620" cy="250" r="5" fill="#98a4b0"/>
+          <text x="582" y="204" text-anchor="end" font-size="17" font-weight="600">115 &#937;</text>
+          <!-- cable -->
+                    <path d="M620 150 H790" stroke="#e0b84a" stroke-width="4" fill="none"/>
+          <path d="M620 250 H790" stroke="#98a4b0" stroke-width="4" fill="none"/>
+          <rect x="650" y="132" width="110" height="136" rx="12" fill="none" stroke="#66717d" stroke-width="2" stroke-dasharray="6 5"/>
+          <text x="705" y="122" text-anchor="middle" font-size="15" style="fill:#98a4b0">RCA cable</text>
+          <text x="705" y="172" text-anchor="middle" font-size="15" font-weight="600" style="fill:#e0b84a">centre</text>
+          <text x="705" y="236" text-anchor="middle" font-size="15" font-weight="600" style="fill:#98a4b0">shield</text>
+          <!-- plug -->
+          <rect x="790" y="120" width="76" height="160" rx="10" fill="#c9d1d9" stroke="#8d99a6" stroke-width="2"/>
+          <circle cx="828" cy="150" r="9" fill="#e0b84a" stroke="#8a6d1c" stroke-width="2"/>
+          <rect x="802" y="236" width="52" height="28" rx="5" fill="#8d99a6"/>
+          <text x="828" y="104" text-anchor="middle" font-size="16" font-weight="600">RCA plug</text>
+          <text x="828" y="304" text-anchor="middle" font-size="15" style="fill:#98a4b0">into the red jack</text>
+        </svg>
+        <p class="hint">This turns the AD3's 3.3 V into about 0.4 to 0.8 V, the normal level for coax S/PDIF.</p>
+      </li>
+      <li>
+        <h3>Other AD3 connections</h3>
+        <ul>
+          <li>DIO 0 stays on the board's serial pin J2 TX. This is optional, it is for the console.</li>
+          <li>Scope probes set to 10x. Probe 1 on BCK at the front DAC socket. Probe 2 on that DAC's data pin. Ground clips on the DAC's ground.</li>
+        </ul>
+        <p class="hint">The probe positions change from test to test. These are the ones for the first test.</p>
+      </li>
+      <li>
+        <h3>Start the generator</h3>
+        <p>Run these from the repo folder:</p>
+<pre><code>python3 tools/spdif_gen.py selftest
+python3 tools/spdif_gen.py run 1017 1526 -12</code></pre>
+        <p><code>selftest</code> needs no wiring. It checks the AD3 pattern by reading it back. <code>run 1017 1526 -12</code> plays 1017 Hz on the left, 1526 Hz on the right, at -12 dBFS. Ctrl-C stops it.</p>
+        <p>A negative right frequency, for example <code>run 1017 -1017 -12</code>, sends the same tone inverted on the right. That is pure surround for the matrix decoder.</p>
+        <div class="note"><b>Only one program can use the AD3 at a time.</b> Before starting the generator, press "Release AD3" on the bench page (<a href="/" style="color:var(--r)">http://127.0.0.1:8791/</a>). Do not run scope measurements there while the generator runs.</div>
+      </li>
+      <li>
+        <h3>What you should see on this page</h3>
+        <ul>
+          <li>Digital input: "LOCKED, 48 kHz PCM" with about 48,828 Hz. The AD3's rate is 1.7 % above 48,000, which is fine.</li>
+          <li>The L and R meters at about -12 dB.</li>
+          <li>With the two different tones, the S meter is active.</li>
+        </ul>
+        <p>If it stays on "NO INPUT SIGNAL", check that the toggle is on coax, that the centre and shield are not swapped, and that the generator is running.</p>
+      </li>
+      <li>
+        <h3>What this setup can and cannot test</h3>
+        <p><b style="color:var(--pass)">Can:</b></p>
+        <ul>
+          <li>Clicks and data-line disturbance, with the scope.</li>
+          <li>Long soak tests.</li>
+          <li>Distortion and noise of each output.</li>
+          <li>The stereo matrix decoder.</li>
+        </ul>
+        <p><b style="color:var(--fail)">Cannot:</b></p>
+        <ul>
+          <li>Dolby Digital. One Dolby frame needs 1,536 audio frames and the AD3 pattern memory holds 256. That stays tested with the TV and with <code>tools/dolby_test.sh</code> on the PC.</li>
+        </ul>
+      </li>
+    </ol>
+  </details>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -282,6 +405,7 @@ document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click"
 document.querySelectorAll("[data-sound]").forEach(b => b.addEventListener("click", () => setBoard("sound=" + b.dataset.sound)));
 document.querySelectorAll("[data-drive]").forEach(b => b.addEventListener("click", () => setBoard("drive=" + b.dataset.drive)));
 $("btnmute").addEventListener("click", () => setBoard("mute=" + (lastApp && lastApp.muted ? 0 : 1)));
+if (location.hash === "#setup-open") $("bench-setup").open = true;
 tick(); setInterval(tick, 500);
 window.addEventListener("resize", draw);
 </script>
