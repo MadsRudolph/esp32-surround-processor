@@ -17,8 +17,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------- parameters
-COUPON_W, COUPON_H = 60.0, 45.0
-OUTLINE_RADIUS = 2.0      # corner radius of the cut-out outline
+COUPON_W, COUPON_H = 22.0, 22.0
+OUTLINE_RADIUS = 1.5      # corner radius of the cut-out outline
 SHRINK = 0.05             # paste aperture shrink per side vs the copper pad (mm)
 CORNER_R = 0.1            # corner radius on rectangular apertures (mm)
 ARC_SEGS = 3              # straight segments per rounded corner
@@ -45,12 +45,14 @@ ESP32_PADS = (
 EP_CENTRE = (-0.68, -0.91)
 EP_PANE, EP_PITCH = 1.05, 1.525
 
-ESP32_ORIGIN = (13.5, 29.0)   # where the footprint origin sits on the coupon
+ESP32_ORIGIN = (11.0, 11.75)   # where the footprint origin sits on the coupon
 
-HOLES = [0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 2.0]            # diameters
-SLOTS = [0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.75, 1.0]      # widths, 3 mm long
+HOLES = [0.3, 0.4, 0.5, 0.6, 0.8, 1.0]                      # diameters
+HOLE_STEP = 2.2
+SLOTS = [0.15, 0.20, 0.25, 0.30, 0.40, 0.50]                 # widths, 3 mm long
+SLOT_STEP = 2.2
 SLOT_LEN = 3.0
-COMBS = [(0.5, 0.25), (0.65, 0.35), (0.8, 0.45), (1.27, 0.6)]  # (pitch, width)
+COMBS = [(0.5, 0.25), (0.65, 0.35)]                          # (pitch, width)
 COMB_N, COMB_LEN = 8, 1.5
 # Chip pads: KiCad R_xxxx_Metric land pads (IPC-7351 nominal density):
 # (name, pad length along part, pad width, centre-to-centre spacing)
@@ -138,83 +140,29 @@ def text(s, x, y, h=TEXT_H, align="center"):
         x += (adv + GAP) * k
 
 
-# --- A. ESP32-WROOM-32 (footprint y-down -> coupon y-up)
+# --- Compact coupon: the ESP32-WROOM-32 pads, with the test features inside the
+# empty middle of the footprint. No labels: see README.md for what is where.
+# (footprint y-down -> coupon y-up)
 ox, oy = ESP32_ORIGIN
 for (_, x, y, w, h) in ESP32_PADS:
     rect(ox + x, oy - y, w - 2 * SHRINK, h - 2 * SHRINK, "esp32")
 for i in (-1, 0, 1):
     for j in (-1, 0, 1):
         rect(ox + EP_CENTRE[0] + i * EP_PITCH, oy - (EP_CENTRE[1] + j * EP_PITCH),
-             EP_PANE - 2 * SHRINK, EP_PANE - 2 * SHRINK, "esp32_ep")
-text("^ ANT", ox, oy + 8.25 + 0.45 + 1.6)            # antenna end is up
-text("ESP32", ox, oy - 5.75)                          # between the pad rows
-text("1", ox - 8.75 - 0.75 - 1.4, oy + 8.25 - TEXT_H / 2)   # pin 1 marker
+             EP_PANE - 2 * SHRINK, EP_PANE - 2 * SHRINK, "esp32")
 
-# --- scale square under the ESP32
-sq_x, sq_y = 3.0, 2.5
-rect(sq_x + SCALE_SQUARE / 2, sq_y + SCALE_SQUARE / 2, SCALE_SQUARE, SCALE_SQUARE, "scale")
-text("10.00", sq_x + SCALE_SQUARE / 2, sq_y + SCALE_SQUARE + 1.0)
+# round holes, a row near the antenna end, smallest at the pin 1 side
+for k, d in enumerate(HOLES):
+    circle(ox + (k - (len(HOLES) - 1) / 2) * HOLE_STEP, oy + 7.0, d, "holes")
 
-
-def spread(widths, x0=RIGHT_X0, x1=RIGHT_X1):
-    """Centres for items of the given widths spread evenly across x0..x1."""
-    gap = (x1 - x0 - sum(widths)) / (len(widths) - 1)
-    xs, x = [], x0
-    for w in widths:
-        xs.append(x + w / 2)
-        x += w + gap
-    return xs, gap
-
-
-def row_tag(s, y):
-    text(s, RIGHT_X0 - 2.2, y, align="center")
-
-
-# --- B1. round holes
-y = 40.0
-slots_w = [max(d, text_width(f"{d:.1f}")) for d in HOLES]
-for cx, d in zip(spread(slots_w)[0], HOLES):
-    circle(cx, y, d, "holes")
-    text(f"{d:.1f}", cx, y - 1.0 - 0.6 - TEXT_H)
-row_tag("D", y - 0.75)
-
-# --- B2. slots, 3 mm long, standing vertically
-y = 31.5
-def slot_label(w):          # ".15" style, leading zero dropped to save space
-    return f"{w:.2f}"[1:] if w < 1 else f"{w:.1f}"
-
-
-widths = [max(w, text_width(slot_label(w))) for w in SLOTS]
-for cx, w in zip(spread(widths)[0], SLOTS):
-    rect(cx, y, w, SLOT_LEN, "slots")
-    text(slot_label(w), cx, y - SLOT_LEN / 2 - 0.6 - TEXT_H)
-row_tag("W", y - 0.75)
-
-# --- B3. fine-pitch combs
-y = 22.5
-widths = [p * (COMB_N - 1) + a for p, a in COMBS]
-for cx, (p, a), cw in zip(spread(widths)[0], COMBS, widths):
+# two fine-pitch combs under the holes: 0.5 mm pitch (pin 1 side) and 0.65 mm pitch
+for cx, (pitch, w) in zip((-3.6, 3.6), COMBS):
     for k in range(COMB_N):
-        rect(cx - cw / 2 + a / 2 + k * p, y, a, COMB_LEN, f"comb{p}")
-    text(f"{p:g}", cx, y - COMB_LEN / 2 - 0.6 - TEXT_H)
-row_tag("P", y - 0.75)
+        rect(ox + cx + (k - (COMB_N - 1) / 2) * pitch, oy + 4.8, w, COMB_LEN, "combs")
 
-# --- B4. chip pad pairs (paste apertures, same SHRINK as the ESP32)
-y = 14.5
-widths = [max(c + L, text_width(n)) for n, L, W, c in CHIPS]
-for cx, (n, L, W, c) in zip(spread(widths)[0], CHIPS):
-    for s in (-1, 1):
-        rect(cx + s * c / 2, y, L - 2 * SHRINK, W - 2 * SHRINK, "chips")
-    text(n, cx, y - 1.75 / 2 - 0.6 - TEXT_H)
-
-# --- B5. 20.00 mm line pair (two thin vertical slots, centres 20.00 apart)
-y = 5.5
-lx = (RIGHT_X0 + RIGHT_X1) / 2
-for s in (-1, 1):
-    rect(lx + s * LINE_PAIR / 2, y, LINE_W, LINE_LEN, "linepair")
-text("20.00", lx, y - TEXT_H / 2)
-
-# ---------------------------------------------------------------- checks on the model
+# slots, a row between the centre pad and the bottom pads, narrowest at the pin 1 side
+for k, w in enumerate(SLOTS):
+    rect(ox + (k - (len(SLOTS) - 1) / 2) * SLOT_STEP, oy - 4.9, w, SLOT_LEN, "slots")
 
 
 def shape_dist(a, b):
