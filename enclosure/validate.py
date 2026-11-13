@@ -9,12 +9,12 @@ self-consistent, not that the real parts fit.
 import json
 import design as m
 
-base, lid, button = m.shapes()
-printed = [('Base', base), ('Lid_Plate', lid), ('User_Button', button)]
+base, lid, button, cradle, knob = m.shapes()
+printed = [('Base', base), ('Lid_Plate', lid), ('User_Button', button), ('Pot_Cradle', cradle), ('Knob', knob)]
 refs = m.references()
-report = {'scope': 'Nominal rigid geometry. Board parts from the KiCad STEP export; modules, terminals, heatsink, '
-                   'DIR9001 module, standoffs and panel parts are envelopes with assumed or photo-estimated sizes. Wires are not modelled.',
-          'collisions': [], 'pairs_checked': 0}
+report = {'scope': 'Nominal rigid geometry. Board parts from the KiCad STEP export; modules, terminals, '
+                   'DIR9001 module from the seller drawing and caliper values; RCA jacks from the seller picture and two caliper values; the DC jack is a keep-clear volume, not a part; the pot body is scaled from a photo against a ruler. Wires are not modelled.',
+          'collisions': [], 'accepted_overlaps': [], 'pairs_checked': 0}
 
 def check(la, a, lb, b):
     report['pairs_checked'] += 1
@@ -23,6 +23,12 @@ def check(la, a, lb, b):
     v = a.common(b).Volume
     if v > 1e-3:
         row = {'pair': f'{la} / {lb}', 'volume_mm3': round(v, 3)}
+        sw = m.P['SW3']['bbox']
+        bb = b.BoundBox
+        if la == 'User_Button' and bb.XMin > sw[0] - 1 and bb.XMax < sw[2] + 1 and bb.YMin > sw[1] - 1 and bb.YMax < sw[3] + 1 and v < 5:
+            # The KiCad switch model's plunger is 4.38 above the board; the real one measures TACT_TOP_ABOVE_BOARD.
+            row['why_accepted'] = 'KiCad switch model is taller than the measured plunger; the cap rides on the real plunger'
+            report['accepted_overlaps'].append(row); return
         report['collisions'].append(row); print('COLLISION', row, flush=True)
 
 # 1. printed parts against everything inside and against each other
@@ -30,6 +36,7 @@ for pn, ps in printed:
     for rn, rs, _ in refs:
         check(pn, ps, rn, rs)
 check('Base', base, 'Lid_Plate', lid); check('Lid_Plate', lid, 'User_Button', button); check('Base', base, 'User_Button', button)
+check('Base', base, 'Pot_Cradle', cradle); check('Base', base, 'Knob', knob); check('Lid_Plate', lid, 'Pot_Cradle', cradle)
 
 # 2. the things inside against each other: board parts, module, panel parts, envelopes
 board = [(n, s) for n, s, g in m.board_solids() + m.carrier_standoffs()]
@@ -41,23 +48,18 @@ for i, (an, a) in enumerate(other):
     for bn, b in other[i + 1:]:
         if an.startswith('DIR9001') and bn.startswith('DIR9001'):
             continue
-        if {an, bn} == {'Volume_pot', 'Volume_knob'}:
-            continue
         check(an, a, bn, b)
-hs = dict(env)['U3_heatsink_envelope']
-for bn, b in board:
-    # the heatsink is bolted to U3; any other board part it reaches is a clash
-    bb = b.BoundBox
-    u3 = m.P['U3']['bbox']
-    if bn != 'Board' and 'standoff' not in bn and not (bb.XMin > u3[0] - 1 and bb.XMax < u3[2] + 1 and bb.YMax < u3[3] + 1):
-        check('U3_heatsink_envelope', hs, bn, b)
 
 # 3. clearances worth knowing
 def gap(a, b):
     return round(a.distToShape(b)[0], 2)
 inside = m.Part.makeCompound([s for _, s in board + env])
 dirc = m.Part.makeCompound([s for n, s, _ in m.dir_module() if 'standoff' not in n])
-jacks = m.Part.makeCompound([s for n, s, _ in m.panel_parts() if n.endswith('_jack')])
+jacks = m.Part.makeCompound([s for n, s, _ in m.panel_parts() if n.endswith(('_jack', '_keep_clear'))])
+pillars = m.Part.makeCompound([m.cyl(x, y, m.Z_FLOOR, m.PILLAR_D, m.DIR_Z0 - m.Z_FLOOR) for x, y in m.dir_pillars()])
+def jack(kind):  # compound of the jacks of one kind
+
+    return m.Part.makeCompound([s for (n, s, _), (_, k, _) in zip(m.panel_parts(), m.JACKS) if k == kind])
 pot = dict((n, s) for n, s, _ in m.panel_parts())['Volume_pot']
 wroom = [s for n, s in board if n == 'WROOM32'][0]
 a2 = m.P['A2']['centre']
@@ -71,21 +73,22 @@ report['clearance_mm'] = {
                                                for x, y in m.LID_POSTS), 2),
     'antenna_to_board_screw_H2': round(((m.BOARD_X - m.HOLES['H2']['xy'][0]) ** 2 + (m.HOLES['H2']['xy'][1] - wroom.BoundBox.YMax) ** 2) ** .5, 2),
     'antenna_to_volume_pot': gap(wroom, pot),
-    'heatsink_envelope_to_plate': gap(hs, lid),
     'dir9001_to_carrier_parts_below_it': round(m.DIR_Z0 - max(sh.BoundBox.ZMax for _, sh in board + env if sh.BoundBox.XMin < m.DIR_X1 and sh.BoundBox.YMax > m.DIR_Y0 and sh.BoundBox.YMin < m.DIR_Y1), 2),
-    'dir9001_assumed_top_to_plate': gap(dirc, lid),
-    'jack_bodies_to_carrier_and_parts': gap(jacks, inside),
-    'jack_bodies_to_plate': gap(jacks, lid),
-    'jack_bodies_to_dir9001': gap(jacks, dirc),
-    'pot_to_heatsink_envelope': gap(pot, hs),
+    'dir9001_top_to_plate': gap(dirc, lid),
+    'jacks_and_keep_clear_volumes_to_carrier_and_parts': gap(jacks, inside),
+    'jacks_and_keep_clear_volumes_to_plate': gap(jacks, lid),
+    'jacks_and_keep_clear_volumes_to_dir9001': gap(jacks, dirc),
+    'pot_to_carrier_and_parts': gap(pot, inside),
 }
 i2s = (m.DIR_X1, m.DIR_Y0 + m.DIR_I2S_U)   # I2S-OUT connector: on the east edge after the turn, position scaled from the seller drawing
 report['wiring_room_mm'] = {
     'rear_bay_depth_board_edge_to_wall': round(m.REAR_BAY, 2),
-    'rear_bay_free_behind_assumed_jack_bodies': round(m.REAR_BAY - m.JACK_BODY_DEPTH, 2),
+    'rear_bay_free_behind_rca_jacks': round(m.REAR_BAY - m.RCA_BEHIND, 2),
     'south_bay_depth_board_edge_to_wall': round(-m.YS, 2),
     'free_height_under_module_over_terminals': round(m.DIR_Z0 - (m.Z_BOARD + m.TERMINAL_H), 2),
-    'jack_bodies_to_module_pillars': gap(jacks, m.Part.makeCompound([m.cyl(x, y, m.Z_FLOOR, m.PILLAR_D, m.DIR_Z0 - m.Z_FLOOR) for x, y in m.dir_pillars()])),
+    'rca_jacks_to_module_pillars': gap(jack('rca'), pillars),
+    'dc_keep_clear_to_module_pillars': gap(jack('dc'), pillars),
+    'neighbouring_lands_smallest_gap': round(min(abs(a[2] - b[2]) - (m.JACK_LAND[a[1]] + m.JACK_LAND[b[1]]) / 2 for a, b in zip(m.JACKS, m.JACKS[1:])), 2),
     'pigtail_straight_line_I2S_OUT_to_A2': round(((a2[0] - i2s[0]) ** 2 + (a2[1] - i2s[1]) ** 2 + (m.DIR_Z0 - m.Z_BOARD) ** 2) ** .5, 1),
     'pot_wire_straight_line_J7_to_pot': round(((m.XE - m.P['J7']['centre'][0]) ** 2 + (m.POT_Y - m.P['J7']['centre'][1]) ** 2) ** .5, 1),
 }
@@ -112,9 +115,19 @@ report['lid_plate'] = {
     'user_button_skirt_to_board': round(button.BoundBox.ZMin - m.Z_BOARD, 2),
     'pin_hole_to_switch_plunger_drop': round(m.Z_LID - (m.Z_BOARD + m.TACT_TOP_ABOVE_BOARD), 2),
 }
+report['pot'] = {
+    'knob_grip_on_d_shaft': m.knob_bore_geometry()[3],
+    'knob_grip_if_the_8_mm_was_measured_from_the_body': round(m.POT_SHAFT_LEN - m.POT_PIP_H - (m.POT_WALL_T + m.KNOB_GAP), 2),
+    'wire_gap_under_cradle': m.CRADLE_BOSS_H,
+    'front_wall_thickness_at_pot': m.POT_WALL_T,
+    'cradle_to_carrier_and_parts': gap(cradle, inside),
+    'cradle_to_pot_body_per_side': m.CRADLE_FIT,
+    'knob_to_recess_wall_radial': round((m.POT_RECESS_D - m.KNOB_D) / 2, 2),
+    'antenna_to_cradle_screws': round(((wroom.BoundBox.YMin - m.POT_Y) ** 2 + max(0, m.BOARD_X - (m.XE - min(m.CRADLE_SCREW_X))) ** 2) ** .5, 2),
+}
 report['notes'] = [
     'The DIR9001 module covers the west screw terminals J3 to J6: lift it off to reach their screws.',
-    'The vent slots are over the regulators and the south bay, not over the DIR9001 module. The highest part under them (the heatsink allowance) is 10.5 mm below the plate; the bare TO-220 tabs are about 17 mm below.',
+    'The vent slots are over the regulators and the south bay, not over the DIR9001 module.',
     'The module is held at three of its four holes (two printed pillars and the standoff on H3). The fourth hole is over bare board.',
 ]
 report['result'] = 'no interference' if not report['collisions'] else f"{len(report['collisions'])} interfering pairs"

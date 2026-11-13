@@ -29,9 +29,9 @@ The pictures are renders made from the KiCad board file in Blender. The copper, 
 
 ![The enclosure closed: a dark printed base with the volume knob on the front and a clear acrylic lid showing the board](docs/img/enclosure-closed-front.webp)
 
-A printed base with a laser-cut lid in 4 mm clear acrylic, held by M3 screws in heat-set inserts. The optical input, the coax input and the four outputs are on the rear panel, the volume knob on the front. It is designed and collision-checked as a model, and not printed yet; the files are in `enclosure/`.
+A printed base with a laser-cut lid in 4 mm clear acrylic, held by M3 screws in heat-set inserts. The optical input, the coax input, four RCA outputs and the 9 V jack are on the rear panel, the volume knob on the front. The model uses caliper measurements of the real board and is collision-checked; it is not printed yet. The files and the list of what is still assumed are in `enclosure/`.
 
-![Rear view of the enclosure with the inputs and outputs, and an exploded view of base, board, receiver module and lid](docs/img/enclosure-exploded.webp)
+![Rear panel: coax, input toggle and optical above, four RCA outputs and the 9 V jack below](docs/img/enclosure-closed-rear.webp)
 
 ## Measured
 

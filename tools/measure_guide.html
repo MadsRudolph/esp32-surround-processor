@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caliper measuring guide</title>
+<style>
+:root {
+  --bg: #0d1014; --panel: #161a20; --panel2: #1c2129; --line: #2a313b;
+  --text: #e8edf2; --muted: #98a4b0; --dim: #66717d;
+  --pass: #3fb950; --warn: #e3b341; --surr: #4dabf7; --front: #ff9f43; --dimc: #ffd43b;
+  --mono: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 18px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+header h1 { font-size: 22px; margin: 0; }
+main { max-width: 920px; margin: 0 auto; padding: 18px 16px 60px; }
+.lead { color: var(--muted); margin: 6px 0 18px; }
+.prog { position: sticky; top: 0; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+        padding: 10px 16px; margin-bottom: 18px; box-shadow: 0 6px 14px #0008; }
+.prog .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.prog b { font-size: 19px; }
+.prog a { color: var(--surr); font-size: 16px; }
+.bar { height: 8px; background: var(--panel2); border-radius: 4px; margin: 8px 0 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--pass); transition: width .2s; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; color: var(--muted); }
+.chips span { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; }
+.chips span.ok { border-color: var(--pass); color: var(--pass); }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+.step h2 { margin: 0 0 4px; font-size: 21px; display: flex; align-items: center; gap: 12px; }
+.num { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line);
+       display: grid; place-items: center; font-size: 17px; font-weight: 700; }
+.sub { color: var(--muted); margin: 6px 0; }
+.fig { overflow-x: auto; margin: 10px 0 4px; -webkit-overflow-scrolling: touch; }
+.fig svg { width: 100%; min-width: 560px; height: auto; display: block; }
+.fig.small svg { min-width: 480px; max-width: 560px; }
+.how3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.how3 > div { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 10px; }
+.how3 p { margin: 4px 0 0; font-size: 16px; color: var(--muted); }
+.mini svg { width: 100%; max-width: 260px; min-width: 0; height: auto; display: block; margin: 0 auto; }
+svg text { font-family: system-ui, sans-serif; fill: var(--text); }
+.lbl { font-size: 15px; }
+.dl { stroke: var(--dimc); stroke-width: 2; }
+.ext { stroke: var(--dimc); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .75; }
+.ctr { stroke: #98a4b0; stroke-width: 1.5; stroke-dasharray: 10 4 2 4; }
+.bd rect { fill: #2a2410; stroke: var(--dimc); stroke-width: 2; }
+.bd text { fill: var(--dimc); font-size: 15px; font-weight: 700; }
+.item { border-top: 1px solid var(--line); padding: 14px 0 10px; }
+.ih { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ih h3 { margin: 0; font-size: 19px; flex: 1 1 200px; }
+.bdg { flex: none; min-width: 38px; height: 28px; padding: 0 8px; border-radius: 14px; background: #2a2410; border: 2px solid var(--dimc);
+       color: var(--dimc); font-weight: 700; font-size: 15px; display: grid; place-items: center; }
+.tag { font-size: 13px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--line); white-space: nowrap; }
+.tag.need { color: var(--warn); border-color: var(--warn); }
+.tag.safe { color: var(--muted); }
+.how { margin: 8px 0; color: var(--text); }
+.ref { color: var(--muted); font-size: 15px; white-space: nowrap; }
+.inputs { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 2px; }
+.f { display: flex; flex-direction: column; gap: 3px; flex: 1 1 150px; max-width: 230px; }
+.f.wide { max-width: none; flex-basis: 260px; }
+.f > span:first-child { font-size: 15px; color: var(--muted); }
+.in { display: flex; align-items: center; gap: 8px; }
+.in em { font-style: normal; color: var(--dim); font-size: 15px; }
+input[type=text], textarea { width: 100%; min-height: 48px; font: inherit; font-size: 18px; color: var(--text); background: #0f1318;
+       border: 1px solid #3a4553; border-radius: 8px; padding: 6px 12px; }
+input[type=text]:focus, textarea:focus { outline: 2px solid var(--surr); border-color: var(--surr); }
+input::placeholder { color: #5b6672; }
+label.chk { display: flex; gap: 12px; align-items: center; min-height: 44px; margin-top: 6px; cursor: pointer; }
+label.chk input { width: 26px; height: 26px; accent-color: var(--pass); flex: none; }
+.radrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0; }
+.rl { color: var(--muted); font-size: 15px; margin-right: 4px; }
+label.rad { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid #3a4553;
+            border-radius: 8px; background: #0f1318; cursor: pointer; }
+label.rad input { width: 22px; height: 22px; accent-color: var(--pass); }
+label.rad:has(input:checked) { border-color: var(--pass); }
+.swipe { display: none; color: var(--warn); font-size: 15px; margin: 0 0 14px; }
+.tip { background: var(--panel2); border-left: 4px solid var(--warn); border-radius: 6px; padding: 9px 14px; margin: 12px 0 2px; }
+textarea { font-family: var(--mono); font-size: 16px; min-height: 180px; resize: vertical; }
+button { font: inherit; font-weight: 600; min-height: 48px; padding: 0 22px; border-radius: 8px; border: 1px solid var(--pass);
+         background: #12301b; color: var(--text); cursor: pointer; }
+button.sec { border-color: #3a4553; background: var(--panel2); color: var(--muted); font-weight: 500; }
+.btns { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
+#status { color: var(--muted); font-size: 16px; }
+code { font-family: var(--mono); background: #0f1318; border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; }
+@media (max-width: 640px) {
+  body { font-size: 17px; }
+  header { padding: 12px 16px; }
+  .how3 { grid-template-columns: 1fr; }
+  .step { padding: 14px 14px; }
+  .f { max-width: none; flex-basis: 100%; }
+  .ref { white-space: normal; }
+  .chips { display: none; }
+  .swipe { display: block; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute;width:0;height:0;margin:0" aria-hidden="true"><defs>
+<marker id="ah" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffd43b"/></marker>
+</defs></svg>
+<header><h1>Caliper measuring guide</h1></header>
+<main>
+<p class="lead">Everything the enclosure still needs from you, with a drawing for each number. Type each answer into its box. Answers are saved in this browser as you type. Drawings are not to scale. Yellow badges on a drawing match the number on the card below it.</p>
+
+<p class="swipe">On a phone, swipe a drawing sideways to see all of it.</p>
+<div class="prog" id="prog"><div class="row"><b id="count">0 of 9 needed values filled in</b><a href="#copy-card">Copy answers</a></div>
+<div class="bar"><i id="barfill"></i></div><div class="chips" id="chips"></div></div>
+
+<section class="step">
+  <h2><span class="num">0</span>How to measure</h2>
+  <div class="how3">
+    <div><div class="mini"><svg viewBox="0 0 240 150" role="img" aria-label="Caliper outside jaws closed on a round part"><rect x="20" y="20" width="200" height="22" rx="0" fill="#8d99a6" stroke="#00000066" stroke-width="1.5" /><rect x="40" y="42" width="12" height="70" rx="0" fill="#c9d1d9" stroke="#00000066" stroke-width="1.5" /><rect x="122" y="42" width="12" height="70" rx="0" fill="#c9d1d9" stroke="#00000066" stroke-width="1.5" /><rect x="112" y="14" width="50" height="34" rx="3" fill="#6b7682" stroke="#00000066" stroke-width="1.5" /><circle cx="87" cy="78" r="35" fill="#ff9f43" stroke="#00000066" stroke-width="1.5"/><text class="lbl" x="120" y="138" text-anchor="middle">outside jaws</text></svg></div><p>Outside jaws for diameters and thicknesses. Close them gently on the part, then read.</p></div>
+    <div><div class="mini"><svg viewBox="0 0 240 150" role="img" aria-label="Caliper body resting on top of a part with the depth rod touching the board"><rect x="15" y="118" width="210" height="10" rx="0" fill="#b27a56" stroke="#e0a47f" stroke-width="1.5" /><rect x="88" y="78" width="56" height="40" rx="4" fill="#2f5fb3" stroke="#00000066" stroke-width="1.5" /><rect x="35" y="62" width="134" height="16" rx="0" fill="#8d99a6" stroke="#00000066" stroke-width="1.5" /><rect x="160" y="78" width="6" height="40" rx="0" fill="#ffd43b" stroke="#00000066" stroke-width="1.5" /><text class="lbl" x="120" y="148" text-anchor="middle">depth rod</text></svg></div><p>Depth rod for heights above the board: rod on the board, caliper body resting on the part top. Also for depth behind a panel.</p></div>
+    <div><div class="mini"><svg viewBox="0 0 240 150" role="img" aria-label="Caliper display reading 12.9 millimetres"><rect x="30" y="26" width="180" height="66" rx="8" fill="#1b2a1f" stroke="#3fb950" stroke-width="1.5" /><text x="120" y="74" text-anchor="middle" font-size="40" font-weight="700" fill="#3fb950" style="font-family:ui-monospace,monospace">12.9</text><text class="lbl" x="120" y="138" text-anchor="middle">mm, one decimal</text></svg></div><p>Measure in mm. One decimal is enough. Pull the jaws away before you read if the display is hard to see, or lock it with the screw.</p></div>
+  </div>
+</section>
+
+<section class="step">
+  <h2><span class="num">A</span>The carrier board</h2>
+  <p class="sub">Side view. Every arrow starts on the board top face (the face the parts stand on) and ends on the top of the part, except 1 and 7.</p>
+  <div class="fig"><svg viewBox="0 0 760 320" role="img" aria-label="Side view of the carrier board on its standoffs with dimension arrows for items 1 to 7"><rect x="130" y="210" width="570" height="13" rx="0" fill="#b27a56" stroke="#e0a47f" stroke-width="1.5" /><rect x="160" y="223" width="30" height="80" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><rect x="640" y="223" width="30" height="80" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><path d="M175 275 V301 M183 275 V301" stroke="#66717d" stroke-width="1.5" stroke-dasharray="3 3"/><text class="lbl" x="205" y="262" text-anchor="start">black standoff</text><text class="lbl" x="415" y="262" text-anchor="middle">carrier board, side view</text><rect x="168" y="126" width="60" height="84" rx="0" fill="#2fa24f" stroke="#00000088" stroke-width="1.5" /><circle cx="188" cy="146" r="9" fill="#9fe0b0"/><circle cx="208" cy="146" r="9" fill="#9fe0b0"/><text class="lbl" x="198" y="118" text-anchor="middle">terminal</text><rect x="266" y="82" width="48" height="128" rx="6" fill="#2f5fb3" stroke="#00000088" stroke-width="1.5" /><text class="lbl" x="290" y="74" text-anchor="middle">470 uF</text><rect x="352" y="194" width="32" height="16" rx="0" fill="#3a4553" stroke="#00000088" stroke-width="1.5" /><rect x="362" y="176" width="12" height="18" rx="2" fill="#e8edf2" stroke="#00000066" stroke-width="1.5" /><text class="lbl" x="368" y="168" text-anchor="middle">USER</text><path d="M422 210 V176 A6 14 0 0 1 434 176 V210 Z" fill="#e5534b" stroke="#00000066" stroke-width="1.5"/><path d="M442 210 V176 A6 14 0 0 1 454 176 V210 Z" fill="#3fb950" stroke="#00000066" stroke-width="1.5"/><text class="lbl" x="438" y="154" text-anchor="middle">LEDs</text><rect x="492" y="110" width="14" height="100" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><rect x="598" y="110" width="14" height="100" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><rect x="492" y="98" width="120" height="13" rx="0" fill="#7a4cb8" stroke="#b79be0" stroke-width="1.5" /><text class="lbl" x="552" y="90" text-anchor="middle">DAC module</text><rect x="652" y="59" width="32" height="48" rx="0" fill="#c9d1d9" stroke="#00000066" stroke-width="1.5" /><circle cx="668" cy="76" r="6" fill="#161a20"/><rect x="650" y="107" width="36" height="70" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><path d="M658 177 V210 M668 177 V210 M678 177 V210" stroke="#c9d1d9" stroke-width="2"/><text class="lbl" x="693" y="84" text-anchor="start">TO-220</text><line class="ext" x1="130" y1="223" x2="79" y2="223" /><line class="ext" x1="160" y1="303" x2="79" y2="303" /><line class="dl" x1="85" y1="223" x2="85" y2="303" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(85,196)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">1</text></g><line class="ext" x1="168" y1="126" x2="146" y2="126" /><line class="dl" x1="146" y1="126" x2="146" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(146,96)"><rect x="-19.0" y="-14" width="38" height="28" rx="14"/><text y="5.5" text-anchor="middle">6a</text></g><line class="ext" x1="266" y1="82" x2="244" y2="82" /><line class="dl" x1="244" y1="82" x2="244" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(244,52)"><rect x="-19.0" y="-14" width="38" height="28" rx="14"/><text y="5.5" text-anchor="middle">6b</text></g><line class="ext" x1="352" y1="176" x2="326" y2="176" /><line class="dl" x1="326" y1="176" x2="326" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(326,146)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">4</text></g><line class="ext" x1="422" y1="162" x2="402" y2="162" /><line class="dl" x1="402" y1="162" x2="402" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(402,122)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">5</text></g><line class="ext" x1="492" y1="98" x2="474" y2="98" /><line class="dl" x1="474" y1="98" x2="474" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(474,60)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">3</text></g><line class="ext" x1="652" y1="59" x2="632" y2="59" /><line class="dl" x1="632" y1="59" x2="632" y2="210" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(632,28)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">2</text></g><line class="ext" x1="700" y1="210" x2="741" y2="210" /><line class="ext" x1="700" y1="223" x2="741" y2="223" /><line class="dl" x1="735" y1="184" x2="735" y2="210" marker-end="url(#ah)"/><line class="dl" x1="735" y1="249" x2="735" y2="223" marker-end="url(#ah)"/><g class="bd" transform="translate(735,158)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">7</text></g><text class="lbl" x="750" y="236" text-anchor="start"></text></svg></div>
+  <div class="item" id="item-1"><div class="ih"><span class="bdg">1</span><h3>Standoff length under the board</h3><span class="tag need">needed before printing</span></div><p class="how">Pick one of the four black standoffs. Measure its length from the underside of the board to its bottom end, with the outside jaws. Look into the bottom end for a thread. <span class="ref">Badge 1 on drawing A.</span></p><div class="inputs"><label class="f"><span>length</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i1" placeholder="10" aria-label="length, mm"><em>mm</em></span></label></div><label class="chk"><input type="checkbox" data-k="i1m3"><span>threaded M3 at the bottom</span></label></div><div class="item" id="item-2"><div class="ih"><span class="bdg">2</span><h3>Tallest part above the board</h3><span class="tag need">needed before printing</span></div><p class="how">Rest the end of the depth rod on the board top, then slide the caliper body down until it touches the top of the tallest part. Read the value, and name the part. <span class="ref">Badge 2 on drawing A.</span></p><div class="inputs"><label class="f"><span>height above top face</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i2" placeholder="18.9" aria-label="height above top face, mm"><em>mm</em></span></label><label class="f wide"><span>which part</span><span class="in"><input type="text" autocomplete="off" data-k="i2p" placeholder="TO-220" aria-label="which part"></span></label></div></div><div class="item" id="item-3"><div class="ih"><span class="bdg">3</span><h3>Top of the DAC modules</h3><span class="tag need">needed before printing</span></div><p class="how">Depth rod on the board top, caliper body resting on the highest point of a plugged-in DAC module (pins and solder included). <span class="ref">Badge 3 on drawing A.</span></p><div class="inputs"><label class="f"><span>height above top face</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i3" placeholder="14" aria-label="height above top face, mm"><em>mm</em></span></label></div></div><div class="item" id="item-4"><div class="ih"><span class="bdg">4</span><h3>Top of the USER button</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">Same method, on the top of the USER button plunger, not pressed. <span class="ref">Badge 4 on drawing A.</span></p><div class="inputs"><label class="f"><span>height above top face</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i4" placeholder="4.3" aria-label="height above top face, mm"><em>mm</em></span></label></div></div><div class="item" id="item-5"><div class="ih"><span class="bdg">5</span><h3>Tops of the two LEDs</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">Same method on the top of each LED dome. If the two differ, type the taller one. <span class="ref">Badge 5 on drawing A.</span></p><div class="inputs"><label class="f"><span>height above top face</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i5" placeholder="6" aria-label="height above top face, mm"><em>mm</em></span></label></div><label class="chk"><input type="checkbox" data-k="i5s"><span>I will straighten them</span></label></div><div class="item" id="item-6"><div class="ih"><span class="bdg">6</span><h3>Screw terminal and blue capacitor</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">Same method twice: once on the top of a screw terminal block, once on the top of the blue 470 uF can. <span class="ref">Badges 6a and 6b on drawing A.</span></p><div class="inputs"><label class="f"><span>screw terminal height</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i6a" placeholder="10.5" aria-label="screw terminal height, mm"><em>mm</em></span></label><label class="f"><span>blue capacitor height</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i6b" placeholder="16" aria-label="blue capacitor height, mm"><em>mm</em></span></label></div></div><div class="item" id="item-7"><div class="ih"><span class="bdg">7</span><h3>Board thickness</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">Close the outside jaws on the bare edge of the board, away from solder blobs. <span class="ref">Badge 7 on drawing A.</span></p><div class="inputs"><label class="f"><span>thickness</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i7" placeholder="1.6" aria-label="thickness, mm"><em>mm</em></span></label></div></div>
+</section>
+
+<section class="step">
+  <h2><span class="num">B</span>The DIR9001 module</h2>
+  <p class="sub">The green receiver board stacked above the carrier. Values 9, 10 and 14 are already settled.</p>
+  <div class="fig"><svg viewBox="0 0 760 360" role="img" aria-label="Side view of the module standing above the carrier with dimension arrows for items 8 and 15"><rect x="30" y="310" width="700" height="13" rx="0" fill="#b27a56" stroke="#e0a47f" stroke-width="1.5" /><rect x="80" y="323" width="30" height="28" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><rect x="650" y="323" width="30" height="28" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><text class="lbl" x="380" y="345" text-anchor="middle">carrier board</text><text class="lbl" x="620" y="300" text-anchor="start">carrier top face</text><rect x="130" y="150" width="30" height="160" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><rect x="560" y="150" width="30" height="160" rx="0" fill="#242a32" stroke="#66717d" stroke-width="1.5" /><text class="lbl" x="168" y="250" text-anchor="start">standoff</text><rect x="110" y="137" width="512" height="13" rx="0" fill="#1f6f3a" stroke="#5fcf84" stroke-width="1.5" /><text class="lbl" x="375" y="200" text-anchor="middle">DIR9001 module (green board)</text><rect x="200" y="65" width="50" height="72" rx="6" fill="#2f5fb3" stroke="#00000088" stroke-width="1.5" /><text class="lbl" x="225" y="57" text-anchor="middle">capacitor</text><rect x="330" y="81" width="60" height="56" rx="0" fill="#e8edf2" stroke="#8d99a6" stroke-width="1.5" /><text class="lbl" x="360" y="73" text-anchor="middle">pigtail plug</text><rect x="470" y="34" width="70" height="103" rx="0" fill="#3a4553" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="505" y="26" text-anchor="middle">tallest part</text><line class="ext" x1="110" y1="150" x2="69" y2="150" /><line class="dl" x1="75" y1="150" x2="75" y2="310" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(44,230)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">8</text></g><line class="ext" x1="470" y1="34" x2="444" y2="34" /><line class="dl" x1="444" y1="34" x2="444" y2="137" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(412,86)"><rect x="-19.0" y="-14" width="38" height="28" rx="14"/><text y="5.5" text-anchor="middle">15</text></g></svg></div>
+  <div class="item" id="item-8"><div class="ih"><span class="bdg">8</span><h3>Standoff under the DIR9001 module</h3><span class="tag need">needed before printing</span></div><p class="how">Measure straight up from the carrier top face to the underside of the module board (the standoff length is the same number). Solder joints under the module do not count. <span class="ref">Badge 8 on drawing B.</span></p><div class="inputs"><label class="f"><span>gap</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i8" placeholder="20" aria-label="gap, mm"><em>mm</em></span></label></div></div><div class="item" id="item-15"><div class="ih"><span class="bdg">15</span><h3>Tallest part on the module</h3><span class="tag need">needed before printing</span></div><p class="how">Depth rod on the module top face, caliper body on the highest part (look at the can, the optical socket and the toggle). Measure from the module top face, not from the carrier. <span class="ref">Badge 15 on drawing B.</span></p><div class="inputs"><label class="f"><span>height above module top face</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i15" placeholder="12.9" aria-label="height above module top face, mm"><em>mm</em></span></label></div></div>
+  <p class="sub" style="margin-top:18px">Top view of the socket edge, the long edge with the three sockets sticking out.</p>
+  <div class="fig"><svg viewBox="0 0 760 345" role="img" aria-label="Top view of the module socket edge with dimension arrows for items 11, 12 and 13"><polygon points="100,200 100,64 132,54 164,64 196,54 228,64 260,54 292,64 324,54 356,64 388,54 420,64 452,54 484,64 516,54 548,64 580,54 612,64 612,200" fill="#1f6f3a" stroke="#5fcf84" stroke-width="1.5"/><text class="lbl" x="356" y="40" text-anchor="middle">module seen from above, socket edge at the bottom (board continues upward)</text><rect x="129" y="118" width="86" height="102" rx="0" fill="#12161b" stroke="#66717d" stroke-width="1.5" /><rect x="160" y="206" width="24" height="14" rx="0" fill="#3a4553" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="172" y="104" text-anchor="middle">optical socket</text><line class="ctr" x1="172" y1="112" x2="172" y2="312" /><rect x="330" y="150" width="52" height="50" rx="0" fill="#c9d1d9" stroke="#00000066" stroke-width="1.5" /><rect x="342" y="200" width="28" height="20" rx="0" fill="#9aa5b1" stroke="#00000066" stroke-width="1.5" /><rect x="352" y="220" width="8" height="44" rx="3" fill="#e8edf2" stroke="#00000066" stroke-width="1.5" /><text class="lbl" x="356" y="104" text-anchor="middle">toggle switch</text><rect x="500" y="120" width="80" height="80" rx="0" fill="#c23b3b" stroke="#00000066" stroke-width="1.5" /><rect x="504" y="200" width="72" height="77" rx="6" fill="#5b6670" stroke="#00000088" stroke-width="1.5" /><text class="lbl" x="540" y="104" text-anchor="middle">coax RCA</text><line class="ext" x1="100" y1="200" x2="100" y2="312" /><line class="dl" x1="100" y1="300" x2="172" y2="300" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(136,276)"><rect x="-23.0" y="-14" width="46" height="28" rx="14"/><text y="5.5" text-anchor="middle">11a</text></g><line class="ext" x1="100" y1="200" x2="54" y2="200" /><line class="ext" x1="129" y1="220" x2="54" y2="220" /><line class="dl" x1="60" y1="170" x2="60" y2="200" marker-end="url(#ah)"/><line class="dl" x1="60" y1="250" x2="60" y2="220" marker-end="url(#ah)"/><g class="bd" transform="translate(60,142)"><rect x="-23.0" y="-14" width="46" height="28" rx="14"/><text y="5.5" text-anchor="middle">11b</text></g><line class="ext" x1="370" y1="220" x2="418" y2="220" /><line class="dl" x1="412" y1="172" x2="412" y2="200" marker-end="url(#ah)"/><line class="dl" x1="412" y1="248" x2="412" y2="220" marker-end="url(#ah)"/><g class="bd" transform="translate(406,142)"><rect x="-23.0" y="-14" width="46" height="28" rx="14"/><text y="5.5" text-anchor="middle">12a</text></g><line class="ext" x1="360" y1="264" x2="476" y2="264" /><line class="dl" x1="470" y1="200" x2="470" y2="264" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(470,142)"><rect x="-23.0" y="-14" width="46" height="28" rx="14"/><text y="5.5" text-anchor="middle">12b</text></g><line class="ext" x1="576" y1="277" x2="610" y2="277" /><line class="dl" x1="604" y1="200" x2="604" y2="277" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(644,240)"><rect x="-19.0" y="-14" width="38" height="28" rx="14"/><text y="5.5" text-anchor="middle">13</text></g><text class="lbl" x="430" y="328" text-anchor="middle">dashed lines run from the board edge to the front of each part</text></svg></div>
+  <div class="item" id="item-11"><div class="ih"><span class="bdg">11</span><h3>Optical (TOSLINK) socket position</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">11a: from the nearer short end of the module board to the middle of the socket opening (measure to the near side of the socket and add half its width). 11b: from the board edge to the front face of the socket. <span class="ref">Badges 11a and 11b on drawing C.</span></p><div class="inputs"><label class="f"><span>11a end to centre</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i11a" placeholder="9.0" aria-label="11a end to centre, mm"><em>mm</em></span></label><label class="f"><span>11b sticks out</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i11b" placeholder="2.5" aria-label="11b sticks out, mm"><em>mm</em></span></label></div></div><div class="item" id="item-12"><div class="ih"><span class="bdg">12</span><h3>Toggle switch reach</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">12a: from the board edge to the end of the threaded bushing. 12b: from the board edge to the lever tip, lever straight out. <span class="ref">Badges 12a and 12b on drawing C.</span></p><div class="inputs"><label class="f"><span>12a bushing</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i12a" placeholder="2.5" aria-label="12a bushing, mm"><em>mm</em></span></label><label class="f"><span>12b lever tip</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i12b" placeholder="8.0" aria-label="12b lever tip, mm"><em>mm</em></span></label></div></div><div class="item" id="item-13"><div class="ih"><span class="bdg">13</span><h3>Coax RCA barrel</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">From the board edge to the end of the metal barrel. <span class="ref">Badge 13 on drawing C.</span></p><div class="inputs"><label class="f"><span>barrel sticks out</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i13" placeholder="9.6" aria-label="barrel sticks out, mm"><em>mm</em></span></label></div></div>
+  <div class="item" id="item-16"><div class="ih"><span class="bdg">16</span><h3>Pigtail length</h3><span class="tag safe">has a safe assumed value</span></div><p class="how">Lay the cable straight and measure from the end of one plug to the end of the other. A ruler is fine. The layout needs 100 or more. <span class="ref">Badge 16 on the small drawing.</span></p><div class="inputs"><label class="f"><span>plug to plug</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i16" placeholder="100+" aria-label="plug to plug, mm"><em>mm</em></span></label></div><div class="fig small"><svg viewBox="0 0 520 130" role="img" aria-label="Pigtail cable measured from plug to plug"><rect x="20" y="40" width="40" height="30" rx="3" fill="#e8edf2" stroke="#8d99a6" stroke-width="1.5" /><rect x="460" y="40" width="40" height="30" rx="3" fill="#e8edf2" stroke="#8d99a6" stroke-width="1.5" /><path d="M60 55 C 150 25, 200 75, 260 52 S 400 30, 460 55" fill="none" stroke="#e3b341" stroke-width="5"/><text class="lbl" x="260" y="18" text-anchor="middle">6-wire cable with a plug on each end</text><line class="ext" x1="20" y1="70" x2="20" y2="118" /><line class="ext" x1="500" y1="70" x2="500" y2="118" /><line class="dl" x1="20" y1="110" x2="500" y2="110" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(260,88)"><rect x="-19.0" y="-14" width="38" height="28" rx="14"/><text y="5.5" text-anchor="middle">16</text></g></svg></div></div>
+</section>
+
+<section class="step">
+  <h2><span class="num">C</span>Panel parts</h2>
+  <p class="sub">The same three measurements for each jack. Part numbers are fine if a jack is not at hand. Swipe the drawing sideways if it is cut off on a phone.</p>
+  <div class="fig"><svg viewBox="0 0 760 330" role="img" aria-label="Side view of a generic panel-mount jack with the three measurements A, B and C"><rect x="330" y="30" width="20" height="280" rx="0" fill="#3a4553" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="340" y="22" text-anchor="middle">panel</text><rect x="230" y="130" width="120" height="60" rx="0" fill="#b0b8c1" stroke="#00000066" stroke-width="1.5" /><path d="M244 130 V190 M258 130 V190 M272 130 V190 M286 130 V190" stroke="#00000055" stroke-width="2"/><rect x="300" y="100" width="30" height="120" rx="2" fill="#8d99a6" stroke="#00000088" stroke-width="1.5" /><rect x="350" y="90" width="170" height="140" rx="4" fill="#2d3540" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="435" y="168" text-anchor="middle">body</text><rect x="520" y="130" width="80" height="12" rx="0" fill="#c9a24a" stroke="#00000066" stroke-width="1.5" /><rect x="520" y="172" width="80" height="12" rx="0" fill="#c9a24a" stroke="#00000066" stroke-width="1.5" /><text class="lbl" x="560" y="212" text-anchor="middle">lugs</text><text class="lbl" x="150" y="170" text-anchor="middle">front</text><line class="ext" x1="300" y1="100" x2="194" y2="100" /><line class="ext" x1="300" y1="220" x2="194" y2="220" /><line class="dl" x1="200" y1="100" x2="200" y2="220" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(200,72)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">B</text></g><line class="dl" x1="266" y1="130" x2="266" y2="190" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(266,106)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">A</text></g><line class="ext" x1="350" y1="230" x2="350" y2="284" /><line class="ext" x1="600" y1="184" x2="600" y2="284" /><line class="dl" x1="350" y1="276" x2="600" y2="276" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(475,254)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">C</text></g></svg></div>
+  <p class="sub"><b>A</b> thread diameter, the hole the panel needs. <b>B</b> widest diameter of the nut or flange. <b>C</b> depth of the body and lugs behind the panel.</p>
+  <div class="item" id="item-17a"><div class="ih"><span class="bdg">17a</span><h3>Gold RCA jack</h3><span class="tag need">needed before printing</span></div><p class="how">Outside jaws on the threaded barrel (A) and on the nut or flange at its widest, corners of a hex nut included (B). Depth rod from the face that sits against the back of the panel to the rear end of the body and lugs (C). <span class="ref">Letters A, B, C on drawing D.</span></p><div class="inputs"><label class="f"><span>A thread diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17at" placeholder="6.4" aria-label="A thread diameter, mm"><em>mm</em></span></label><label class="f"><span>B flange / nut diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17af" placeholder="15" aria-label="B flange / nut diameter, mm"><em>mm</em></span></label><label class="f"><span>C depth behind panel</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17ad" placeholder="22" aria-label="C depth behind panel, mm"><em>mm</em></span></label></div></div><div class="item" id="item-17b"><div class="ih"><span class="bdg">17b</span><h3>TRS jack</h3><span class="tag need">needed before printing</span></div><p class="how">Outside jaws on the threaded barrel (A) and on the nut or flange at its widest, corners of a hex nut included (B). Depth rod from the face that sits against the back of the panel to the rear end of the body and lugs (C). <span class="ref">Letters A, B, C on drawing D.</span></p><div class="inputs"><label class="f"><span>A thread diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17bt" placeholder="9.5" aria-label="A thread diameter, mm"><em>mm</em></span></label><label class="f"><span>B flange / nut diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17bf" placeholder="15" aria-label="B flange / nut diameter, mm"><em>mm</em></span></label><label class="f"><span>C depth behind panel</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17bd" placeholder="22" aria-label="C depth behind panel, mm"><em>mm</em></span></label><div class="radrow"><span class="rl">plug size</span><label class="rad"><input type="radio" name="i17bs" data-k="i17bs" value="6.35 mm"><span>6.35 mm</span></label><label class="rad"><input type="radio" name="i17bs" data-k="i17bs" value="3.5 mm"><span>3.5 mm</span></label></div></div></div><div class="item" id="item-17c"><div class="ih"><span class="bdg">17c</span><h3>DC jack</h3><span class="tag need">needed before printing</span></div><p class="how">Outside jaws on the threaded barrel (A) and on the nut or flange at its widest, corners of a hex nut included (B). Depth rod from the face that sits against the back of the panel to the rear end of the body and lugs (C). <span class="ref">Letters A, B, C on drawing D.</span></p><div class="inputs"><label class="f"><span>A thread diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17ct" placeholder="8.2" aria-label="A thread diameter, mm"><em>mm</em></span></label><label class="f"><span>B flange / nut diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17cf" placeholder="15" aria-label="B flange / nut diameter, mm"><em>mm</em></span></label><label class="f"><span>C depth behind panel</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i17cd" placeholder="22" aria-label="C depth behind panel, mm"><em>mm</em></span></label></div></div>
+  <p class="sub" style="margin-top:18px">The potentiometer, with its knob.</p>
+  <div class="fig"><svg viewBox="0 0 760 340" role="img" aria-label="Side view of the potentiometer with knob and the six measurements A to F"><rect x="360" y="30" width="20" height="300" rx="0" fill="#3a4553" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="370" y="22" text-anchor="middle">panel</text><rect x="60" y="100" width="80" height="160" rx="6" fill="#e5534b22" stroke="#e5534b" stroke-width="1.5" stroke-dasharray="6 4"/><text class="lbl" x="100" y="90" text-anchor="middle">knob</text><rect x="90" y="166" width="170" height="28" rx="0" fill="#9aa5b1" stroke="#00000066" stroke-width="1.5" /><rect x="250" y="140" width="130" height="80" rx="0" fill="#b0b8c1" stroke="#00000066" stroke-width="1.5" /><path d="M264 140 V220 M278 140 V220 M292 140 V220 M306 140 V220" stroke="#00000055" stroke-width="2"/><rect x="330" y="120" width="30" height="120" rx="2" fill="#8d99a6" stroke="#00000088" stroke-width="1.5" /><rect x="380" y="100" width="140" height="160" rx="4" fill="#2d3540" stroke="#98a4b0" stroke-width="1.5" /><text class="lbl" x="412" y="186" text-anchor="middle">body</text><rect x="520" y="140" width="26" height="10" rx="0" fill="#c9a24a" stroke="#00000066" stroke-width="1.5" /><rect x="520" y="170" width="26" height="10" rx="0" fill="#c9a24a" stroke="#00000066" stroke-width="1.5" /><rect x="520" y="200" width="26" height="10" rx="0" fill="#c9a24a" stroke="#00000066" stroke-width="1.5" /><line class="ext" x1="60" y1="100" x2="34" y2="100" /><line class="ext" x1="60" y1="260" x2="34" y2="260" /><line class="dl" x1="40" y1="100" x2="40" y2="260" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(40,72)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">F</text></g><line class="dl" x1="200" y1="166" x2="200" y2="194" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(200,138)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">D</text></g><line class="dl" x1="290" y1="140" x2="290" y2="220" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(290,112)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">A</text></g><line class="dl" x1="450" y1="100" x2="450" y2="260" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(450,72)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">B</text></g><line class="ext" x1="90" y1="194" x2="90" y2="298" /><line class="ext" x1="250" y1="220" x2="250" y2="298" /><line class="dl" x1="90" y1="290" x2="250" y2="290" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(170,268)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">E</text></g><line class="ext" x1="380" y1="260" x2="380" y2="310" /><line class="ext" x1="520" y1="260" x2="520" y2="310" /><line class="dl" x1="380" y1="302" x2="520" y2="302" marker-start="url(#ah)" marker-end="url(#ah)"/><g class="bd" transform="translate(450,282)"><rect x="-14.0" y="-14" width="28" height="28" rx="14"/><text y="5.5" text-anchor="middle">C</text></g></svg></div>
+  <div class="item" id="item-18"><div class="ih"><span class="bdg">18</span><h3>Potentiometer</h3><span class="tag need">needed before printing</span></div><p class="how">A thread (outside jaws on the bushing), B body diameter, C depth from the panel side of the body to its rear face (not the pins), D shaft diameter, E shaft length from the bushing end to the tip, F knob diameter (outside jaws across the knob). <span class="ref">Letters A to F on drawing E.</span></p><div class="inputs"><label class="f"><span>A thread diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18t" placeholder="7" aria-label="A thread diameter, mm"><em>mm</em></span></label><label class="f"><span>B body diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18b" placeholder="17" aria-label="B body diameter, mm"><em>mm</em></span></label><label class="f"><span>C body depth</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18d" placeholder="11" aria-label="C body depth, mm"><em>mm</em></span></label><label class="f"><span>D shaft diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18s" placeholder="6" aria-label="D shaft diameter, mm"><em>mm</em></span></label><label class="f"><span>E shaft length</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18l" placeholder="mm" aria-label="E shaft length, mm"><em>mm</em></span></label><label class="f"><span>F knob diameter</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i18k" placeholder="20" aria-label="F knob diameter, mm"><em>mm</em></span></label></div></div>
+</section>
+
+<section class="step">
+  <h2><span class="num">D</span>Two questions</h2>
+  <div class="item" id="item-19"><div class="ih"><span class="bdg">19</span><h3>LM317 heatsink</h3><span class="tag safe">no measuring</span></div><p class="how">Will the LM317 regulator get a heatsink? If yes, give the size of the heatsink you plan to use.</p><div class="radrow"><span class="rl">heatsink</span><label class="rad"><input type="radio" name="i19" data-k="i19" value="yes"><span>yes</span></label><label class="rad"><input type="radio" name="i19" data-k="i19" value="no"><span>no</span></label></div><div class="inputs"><label class="f"><span>width</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i19w" placeholder="22" aria-label="width, mm"><em>mm</em></span></label><label class="f"><span>depth</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i19d" placeholder="14" aria-label="depth, mm"><em>mm</em></span></label><label class="f"><span>top above board</span><span class="in"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-k="i19h" placeholder="26" aria-label="top above board, mm"><em>mm</em></span></label></div></div><div class="item" id="item-jacks"><div class="ih"><span class="bdg">?</span><h3>Jacks in hand</h3><span class="tag safe">no measuring</span></div><p class="how">Do you have the TRS jacks and the DC jack yet?</p><div class="radrow"><span class="rl">have them</span><label class="rad"><input type="radio" name="jacks" data-k="jacks" value="yes"><span>yes</span></label><label class="rad"><input type="radio" name="jacks" data-k="jacks" value="no"><span>no</span></label></div><div class="inputs"><label class="f wide"><span>note (part numbers, where from)</span><span class="in"><input type="text" autocomplete="off" data-k="jacksn" placeholder="" aria-label="note (part numbers, where from)"></span></label></div></div>
+</section>
+
+<section class="step" id="copy-card">
+  <h2><span class="num">&#10003;</span>Copy answers</h2>
+  <p class="sub">One line per answered item. Unanswered items are left out. If the button cannot reach the clipboard, select the text below by hand.</p>
+  <div class="btns"><button id="copy" type="button">Copy answers</button><button id="clear" type="button" class="sec">Clear all</button><span id="status" role="status"></span></div>
+  <textarea id="out" readonly rows="10" aria-label="Answers as plain text"></textarea>
+</section>
+</main>
+<script>
+(function () {
+  var KEY = 'esp32_measure_guide_v1';
+  var M = {}, order = [];
+  Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (e) {
+    var k = e.getAttribute('data-k');
+    if (!M[k]) { M[k] = []; order.push(k); }
+    M[k].push(e);
+  });
+  function get(k) {
+    var l = M[k] || [];
+    if (!l.length) return '';
+    if (l[0].type === 'radio') { for (var i = 0; i < l.length; i++) if (l[i].checked) return l[i].value; return ''; }
+    if (l[0].type === 'checkbox') return l[0].checked;
+    return l[0].value.replace(/^\s+|\s+$/g, '');
+  }
+  function set(k, v) {
+    var l = M[k] || [];
+    if (!l.length) return;
+    if (l[0].type === 'radio') { l.forEach(function (e) { e.checked = (e.value === v); }); }
+    else if (l[0].type === 'checkbox') l[0].checked = !!v;
+    else l[0].value = (v == null ? '' : String(v));
+  }
+  function joined(ks) {
+    var v = ks.map(get);
+    if (!v.some(function (x) { return x !== ''; })) return '';
+    return v.map(function (x) { return x === '' ? '-' : x; }).join(' / ');
+  }
+  function std(id, ks, extra) {
+    return function () {
+      var v = joined(ks), e = extra ? extra() : '';
+      if (v === '' && !e) return '';
+      return id + ': ' + (v || '-') + (e ? ' (' + e + ')' : '');
+    };
+  }
+  var ITEMS = [
+    { id: '1', need: ['i1'], line: std('1', ['i1'], function () { return get('i1m3') ? 'M3 yes' : ''; }) },
+    { id: '2', need: ['i2'], line: std('2', ['i2'], function () { return get('i2p'); }) },
+    { id: '3', need: ['i3'], line: std('3', ['i3']) },
+    { id: '4', line: std('4', ['i4']) },
+    { id: '5', line: std('5', ['i5'], function () { return get('i5s') ? 'straighten yes' : ''; }) },
+    { id: '6', line: std('6', ['i6a', 'i6b']) },
+    { id: '7', line: std('7', ['i7']) },
+    { id: '8', need: ['i8'], line: std('8', ['i8']) },
+    { id: '11', line: std('11', ['i11a', 'i11b']) },
+    { id: '12', line: std('12', ['i12a', 'i12b']) },
+    { id: '13', line: std('13', ['i13']) },
+    { id: '15', need: ['i15'], line: std('15', ['i15']) },
+    { id: '16', line: std('16', ['i16']) },
+    { id: '17a', need: ['i17at', 'i17af', 'i17ad'], line: std('17a', ['i17at', 'i17af', 'i17ad']) },
+    { id: '17b', need: ['i17bt', 'i17bf', 'i17bd'], line: std('17b', ['i17bt', 'i17bf', 'i17bd'], function () { return get('i17bs'); }) },
+    { id: '17c', need: ['i17ct', 'i17cf', 'i17cd'], line: std('17c', ['i17ct', 'i17cf', 'i17cd']) },
+    { id: '18', need: ['i18t', 'i18b', 'i18d', 'i18s', 'i18l', 'i18k'], line: std('18', ['i18t', 'i18b', 'i18d', 'i18s', 'i18l', 'i18k']) },
+    { id: '19', line: function () {
+        var yn = get('i19'), sz = joined(['i19w', 'i19d', 'i19h']);
+        if (!yn && !sz) return '';
+        if (yn === 'no') return '19: no';
+        return '19: ' + (yn || '-') + (sz ? ' ' + sz : '');
+      } },
+    { id: 'jacks', line: function () {
+        var yn = get('jacks'), n = get('jacksn');
+        if (!yn && !n) return '';
+        return 'jacks: ' + (yn || '-') + (n ? ' (' + n + ')' : '');
+      } }
+  ];
+  var NEEDED = ITEMS.filter(function (i) { return i.need; });
+  var out = document.getElementById('out'), status = document.getElementById('status');
+  function build() {
+    return ITEMS.map(function (i) { return i.line(); }).filter(function (s) { return s; }).join('\n');
+  }
+  function refresh() {
+    var done = 0, chips = '';
+    NEEDED.forEach(function (i) {
+      var ok = i.need.every(function (k) { return get(k) !== ''; });
+      if (ok) done++;
+      chips += '<span class="' + (ok ? 'ok' : '') + '">' + i.id + (ok ? ' done' : '') + '</span>';
+    });
+    document.getElementById('count').textContent = done + ' of ' + NEEDED.length + ' needed values filled in';
+    document.getElementById('barfill').style.width = (100 * done / NEEDED.length) + '%';
+    document.getElementById('chips').innerHTML = chips;
+    out.value = build();
+  }
+  function save() {
+    try {
+      var s = {};
+      order.forEach(function (k) { s[k] = get(k); });
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch (e) {}
+  }
+  try {
+    var s = JSON.parse(localStorage.getItem(KEY) || '{}');
+    Object.keys(s).forEach(function (k) { set(k, s[k]); });
+  } catch (e) {}
+  function changed() { refresh(); save(); if (status) status.textContent = ''; }
+  document.addEventListener('input', changed);
+  document.addEventListener('change', changed);
+  document.getElementById('copy').addEventListener('click', function () {
+    var t = build();
+    refresh();
+    if (!t) { status.textContent = 'Nothing answered yet.'; return; }
+    function fallback() {
+      var ok = false;
+      out.focus(); out.select();
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      status.textContent = ok ? 'Copied.' : 'Clipboard blocked. The text is selected, press Ctrl+C.';
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(function () { status.textContent = 'Copied.'; out.select(); }, fallback);
+      } else fallback();
+    } catch (e) { fallback(); }
+  });
+  document.getElementById('clear').addEventListener('click', function () {
+    if (!window.confirm('Clear every answer on this page?')) return;
+    order.forEach(function (k) { set(k, M[k][0].type === 'checkbox' ? false : ''); });
+    changed();
+  });
+  refresh();
+})();
+</script>
+</body>
+</html>

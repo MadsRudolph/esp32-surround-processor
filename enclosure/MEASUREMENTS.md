@@ -1,70 +1,55 @@
-# Measurements needed for the enclosure
+# Measurements for the enclosure
 
-Everything here is in millimetres. Calipers where possible, a ruler is fine for anything over 30 mm.
-The value in brackets is what the model assumes until you answer. Each one is a named
-parameter in the ASSUMED block of `design.py`. "Photo" means the value was scaled from the
-photos of 12 November, which had no ruler in frame, so it is only good to a few millimetres.
+Everything is in millimetres. Each value is a named parameter near the top of `design.py`, marked
+MEASURED, seller drawing, or ASSUMED. Heights on the carrier are above its top face.
 
-## Settled
+## Still open
 
-The DIR9001 module is turned 180 degrees and moved about 40 mm west, sockets through the rear wall,
-still standing on the H3 standoff. The questions below are for that arrangement.
+Measure or decide these, in this order of importance.
 
-## Board and the parts on it
+- **11b. Toggle position on the module.** You measured the TOSLINK centre 6 from the nearer board end. With the drawing's 23.0 spacings that puts the toggle axis 29 from that end and the coax centre 52. The drawing's proportions say 9, 32 and 55, with the toggle on the middle of the 64 mm edge. One number settles it: **the distance from the TOSLINK end of the board to the toggle lever's axis** (29, or 32?). The three openings in the rear wall move together with it. **Check this before printing the base.**
+- **18. Potentiometer, what is left:** the length of the 7 mm collar, whether the 8 mm shaft length is measured from the end of the collar or from the body, the height of the two small bosses on the front face, and a caliper check of the frame (9.8 x 11.3 from the photo). Print `Pot_Fit_Test` and `Pot_Cradle` to check the fit before the whole base. (assumed: collar 2.0, 8 measured from the collar, bosses 0.5)
+- **17c. DC jack** (not in hand): thread diameter and nut size. The base has an 8.0 mm hole that can be opened up to 12 mm.
+- **22. Kerf of the laser in the acrylic**: cut a 20 mm square and measure it. (assumed 0.20; the cut file is drawn for that)
+- **23. Real thickness of the acrylic sheet.** It only changes how far the button stands proud. (assumed 4.0)
 
-1. **Length of the four black hex standoffs under the carrier**, and their thread (M3 female at the bottom?). The floor screws go up into them. (assumed 10, M3, photo)
-2. **Height of the tallest part on the carrier above its top face**, and which part it is. Ruler flat across its top, measure down. (the TO-220s, 18.9 in the KiCad model; no heatsink is fitted in the photos)
-3. **Height of the plugged-in PCM5102 modules above the top face**, to their highest point. (assumed 14)
-4. **Height of the USER button's plunger top above the top face**, not pressed, and the width and height of its square body. Are BOOT and RESET the same type? (assumed 4.3; body 6.2 x 6.2, 3.5 tall)
-5. No longer needed: the LEDs show through the clear lid.
-6. **Height of the screw terminals and of the blue 470 uF can above the top face.** (assumed 10.5 and 16)
-7. **Board thickness.** (assumed 1.6)
+Small things still assumed, none of them likely to matter: the RCA nut (12.6 across corners) and its
+depth behind the panel (15), the square body of the USER switch (6.2 wide, 3.5 tall), the smaller electrolytic cans (12), the longest lead under the board (2.5), hole diameter in
+the module (M3).
 
-## DIR9001 module
+## Measured by Mads
 
-Answered by the seller's dimension drawing (worth one caliper check each when the module is off):
+- [x] **1.** Standoffs under the carrier: **10**, M3 female at the bottom.
+- [x] **2.** Tallest part on the carrier: **24**, the L7805.
+- [x] **3.** Top of the PCM5102 modules: **8**.
+- [x] **4.** USER button plunger top, unpressed: **4**.
+- [x] **5.** LED tops: **6**.
+- [x] **6.** Screw terminals **10**, blue 470 uF can **14**.
+- [x] **7.** Board thickness: **1.6**.
+- [x] **8.** Carrier top face to the underside of the module (the standoff on H3): **22**.
+- [x] **11.** TOSLINK: centre **6** from the nearer board end, front **2.5** past the board edge. See 11b above.
+- [x] **12.** Toggle: bushing **2** past the board edge, lever tip **8**.
+- [x] **13.** Coax RCA barrel: **8** past the board edge.
+- [x] **15.** Tallest part on the module above its top face: **12**.
+- [x] **16.** Pigtail: over **100**, long enough (the layout needs about 70 in a straight line).
+- [x] **17a.** RCA jacks: thread about **7**, white washer about **15** outer diameter. Four of them; there are no TRS jacks.
+- [x] **18 (photo and partly measured).** Pot: no thread, collar **7**, D-shaft **6** diameter, **8** long, body **6** deep (calipers). From the photo against a ruler, good to about 0.5: frame **9.8** across the pins' direction and **11.3** along it, shaft axis about **6.6** from the pin edge, three pins on one side at 2.5 pitch reaching about **7** with their solder joints.
+- [x] **19.** No heatsink on the LM317. The allowance for one is removed.
+
+## From the seller's dimension drawing of the module
 
 - [x] **9.** Bare board: **64.0 x 48.0, 1.6 thick**, sockets on a 64 mm edge.
-- [x] **10.** Mounting holes: **56.0 x 24.5**, 4.0 in from each end, rows 4.0 and 28.5 from the I2S-OUT edge (19.5 from the socket edge). Hole diameter is not on the drawing; M3 assumed.
-- [x] **14.** Height of the TOSLINK's optical axis above the module's top face: **5.6** (the drawing's "0.56 cm", read as the axis height). Body 10.8 x 10.8.
-- [x] **11, 12, 13 in part:** TOSLINK to toggle **23.0**, toggle to RCA **23.0**; toggle bushing **5.5** diameter, axis **3.0** above the top face; RCA barrel **9.0** diameter, centre **6.3** above the top face.
+- [x] **10.** Mounting holes: **56.0 x 24.5**, 4.0 in from each end, rows 4.0 and 28.5 from the I2S-OUT edge (19.5 from the socket edge).
+- [x] **14.** TOSLINK optical axis above the module's top face: **5.6**. Body 10.8 x 10.8.
+- [x] TOSLINK to toggle **23.0**, toggle to coax **23.0**; toggle bushing **5.5** diameter, axis **3.0** above the top face; coax barrel **9.0** diameter, centre **6.3** above the top face.
 
-Still open:
+## Settled by Mads
 
-- **8.** **Length of the standoff on top of H3 that carries the module**, which is the gap between the carrier's top face and the underside of the module. (assumed 20, photo)
-- **11.** **TOSLINK: distance from the nearer end of the board to the centre of the socket, and how far its front sits past the board edge.** The drawing gives neither. (9.0 and 2.5, scaled from the drawing)
-- **12.** **Toggle: how far the bushing and the lever tip reach past the board edge.** (2.5 and 8.0, scaled from the drawing)
-- **13.** **Coax RCA: how far the barrel reaches past the board edge.** (9.6, scaled from the drawing)
-- **15.** **Tallest part on the module above its top face**, and how far the longest solder joint sticks out underneath. (assumed 12.9 above, from a listing's 14.5 overall)
-- **16.** **Length of the pigtail between its two XH plugs.** The layout needs about 70 mm in a straight line, 100 mm for a relaxed run; the one in the photos looks much longer, which is fine.
+- [x] The module is turned 180 degrees and moved west, sockets through the rear wall, standing on the H3 standoff.
+- [x] **20.** Inserts: standard M3 brass heat-set, 4.6 outer diameter x 5.7 long.
+- [x] **21.** Lid: clear acrylic, 4 mm, CO2 laser.
 
-## Panel jacks and pot
+## From seller pictures of the panel parts
 
-17. **RCA jacks, TRS jacks and the DC jack, each: thread diameter (the hole it needs), the widest diameter of the nut or flange, and how deep the body and solder lugs go behind the panel.** Are the TRS jacks 6.35 or 3.5 mm? Part numbers will do if they are not to hand. (assumed holes 6.4, 9.5 and 8.2; bodies up to 15 wide and 22 deep)
-18. **Potentiometer: bushing thread diameter and length, body diameter and depth behind the panel, shaft diameter and length, and the anti-rotation tab (distance from the shaft centre, width), if it has one.** Also the knob diameter. (assumed M7 bushing in a 7.2 hole, 17 x 11 body, 6 mm shaft, tab snapped off, 20 mm knob)
-
-## Heatsink
-
-19. **Will the LM317 get a heatsink?** If so: width along the board edge, depth out from the tab, and how far its top is above the top face of the board. (assumed 22 wide, 14 deep, top at 26, hanging over the south edge)
-
-## Fasteners and lid
-
-Settled:
-
-- [x] **20.** Inserts: the standard M3 brass heat-set insert, 4.6 mm outer diameter x 5.7 mm long, per Mads. Measure one before printing if it looks different.
-- [x] **21.** Lid: clear acrylic, 4 mm, cut on a CO2 laser, per Mads. (A diode laser cannot cut clear acrylic.)
-
-Still open:
-
-- **22.** **Kerf of the laser in this acrylic**: cut a 20 mm square and measure it. (assumed 0.20; the cut file is drawn for that)
-- **23.** **Real thickness of the acrylic sheet.** It only changes how far the button stands proud. (assumed 4.0)
-
-## Photos that would still help
-
-The first set shows the layout well. What is missing is scale and square-on views.
-Put a ruler or the calipers in the frame and shoot square-on.
-
-- The whole stack straight from the south edge and straight from the west edge, at board level, so the heights can be read off.
-- The DIR9001 module on its own, straight from above, with a ruler along the socket edge.
-- The DIR9001 module straight at the socket edge, with a ruler standing next to it.
-- Each panel part (RCA, TRS, DC jack, pot, knob) from the side next to a ruler.
+- RCA jack: panel up to 2 mm thick, 28.6 long overall, 8.26 barrel. Its "12 mm fixing hole" is for the shouldered washers, which are not used.
+- DC jack: 5.5 x 2.1 mm, 2-pin panel socket, 18.2 long overall. Thread not given.

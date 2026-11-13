@@ -49,7 +49,7 @@ s.render.filepath = out; bpy.ops.render.render(write_still=True)
 
 def main():
     import design as m
-    base, lid, button = m.shapes()
+    base, lid, button, cradle, knob = m.shapes()
     inside = [(n, s, g) for n, s, g in m.references()]
     cx, cy = (m.XW + m.XE) / 2, (m.YS + m.YN) / 2
 
@@ -67,12 +67,13 @@ def main():
         return {'rows': rows(parts), 'ground': m.Z_BOT, 'cam': [c / 1000 for c in cam], 'target': [c / 1000 for c in target], 'lens': lens, 'res': list(res)}
 
     shell = [('Base', base, 'base'), ('Lid_Plate', lid, 'lid'), ('User_Button', button, 'button')]
-    panel = [r for r in inside if r in m.panel_parts() or r[0].endswith('_jack') or r[0].startswith('Volume')]
+    small = [('Pot_Cradle', cradle, 'button'), ('Knob', knob, 'black')]
+    panel = [r for r in inside if r in m.panel_parts() or r[0].endswith(('_jack', '_keep_clear')) or r[0].startswith('Volume')]
     guts = [r for r in inside if r not in panel]
     sockets = [r for r in guts if r[0] in ('DIR9001_toslink', 'DIR9001_rca', 'DIR9001_toggle')]
     # exploded: lid and button up, board and modules half way
     exploded = [('Base', base, 'base'), ('Lid_Plate', lift(lid, 125), 'lid'), ('User_Button', lift(button, 150), 'button')]
-    exploded += [(n, lift(s, 60), g) for n, s, g in guts] + panel
+    exploded += [(n, lift(s, 60), g) for n, s, g in guts] + panel + small
     # cut-away: everything sliced on the vertical plane through the USER button, seen from the front
     keep = m.box(-500, -500, -100, m.P['SW3']['centre'][0], 500, 200)
     def sliced(parts):
@@ -83,16 +84,17 @@ def main():
             if s.Volume > 1e-6:
                 out.append((n, s, g))
         return out
-    cut = sliced(shell[:2] + guts + panel) + [shell[2]]
+    cut = sliced(shell[:2] + guts + panel) + [shell[2]] + small
     views = {
-        'closed-front.png': view(shell + guts + panel, (cx + 330, cy - 330, 270)),
-        'closed-rear.png': view(shell + guts + panel, (cx - 360, cy - 250, 230)),
-        'open-top.png': view([shell[0]] + guts + panel, (cx - 1, cy - 110, 560), lens=78),
-        'open-rear.png': view([shell[0]] + guts + panel, (cx - 330, cy - 280, 330)),
+        'closed-front.png': view(shell + small + guts + panel, (cx + 330, cy - 330, 270)),
+        'closed-rear.png': view(shell + small + guts + panel, (cx - 360, cy - 250, 230)),
+        'open-top.png': view([shell[0]] + small + guts + panel, (cx - 1, cy - 110, 560), lens=78),
+        'open-rear.png': view([shell[0]] + small + guts + panel, (cx - 330, cy - 280, 330)),
         'exploded.png': view(exploded, (cx + 430, cy - 470, 420), target=(cx, cy, 62), lens=95, res=(1500, 1500)),
         'cutaway.png': view(cut, (cx + 420, cy - 110, 170), target=(cx - 30, cy, 14), lens=78),
-        'closed-top.png': view(shell + guts + panel, (cx - 1, cy - 110, 560), lens=78),
-        'button-cap.png': view([('User_Button', m.print_pose('User_Button', button).translated(m.V(cx, cy, m.Z_BOT)), 'button')], (cx + 60, cy - 80, 45), target=(cx + 5, cy + 5, m.Z_BOT + 18), lens=60),
+        'closed-top.png': view(shell + small + guts + panel, (cx - 1, cy - 110, 560), lens=78),
+        'pot-mount.png': view([('Base', base.common(m.box(70, -40, -30, 200, 4, 100)), 'base')] + small + [r for r in panel if r[0] == 'Volume_pot'], (m.XE - 75, m.POT_Y + 95, 95), target=(m.XE - 6, m.POT_Y, m.Z_POT - 8), lens=70),
+        'rear-panel.png': view(shell + small + guts + panel, (m.XW - 330, cy, 60), target=(m.XW, cy, 14), lens=110, res=(1600, 900)),
         'base-empty.png': view([shell[0]], (cx - 1, cy - 250, 430), lens=70),
     }
     (ROOT / 'render').mkdir(exist_ok=True)
