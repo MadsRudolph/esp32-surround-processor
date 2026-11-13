@@ -354,3 +354,14 @@ python3 enclosure/render_preview.py   # render/*.png
 | `print/` | STL per printed part, in print orientation. |
 | `lasercut/` | The lid as DXF and SVG. |
 | `render/` | Preview renders. |
+
+## For a later revision
+
+- **Balanced surround outputs on the panel.** This version has four RCA jacks, so the
+  surround outputs are unbalanced at the panel. The board itself is built for an
+  impedance-balanced connection (tip, ring through 100 ohm, sleeve). A later version
+  should have two panel-mount 6.35 mm TRS chassis jacks for SL and SR in place of the
+  RCA jacks. They need holes of about 9.5 to 11 mm and more than the present 18.5 mm
+  between centres, so the lower row has to be spread out.
+- Until then, hum on the long surround runs is dealt with in the cable: all three
+  conductors from the board's T, R and S screws to an inline TRS jack near the speaker.
