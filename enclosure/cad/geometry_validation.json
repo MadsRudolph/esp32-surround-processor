@@ -59,18 +59,23 @@
   "lasercut": {
     "files": [
       "lasercut/Lid_Plate_4mm_acrylic.dxf",
+      "lasercut/Lid_Plate_4mm_acrylic_R2000.dxf",
       "lasercut/Lid_Plate_4mm_acrylic.svg"
     ],
     "plate_mm": [
-      142.12,
+      142.125,
       115.8,
       4.0
     ],
+    "drawn_outline_mm": [
+      142.325,
+      116.0
+    ],
     "kerf_compensated_mm": 0.2,
     "entities": {
-      "CUT": 47,
-      "ENGRAVE": 150,
-      "LED_OPTIONAL": 2
+      "CUT": 16,
+      "ENGRAVE": 34,
+      "LED_OPTIONAL_NOT_FOR_CLEAR_ACRYLIC": 2
     }
   },
   "knob_grip_on_d_shaft_mm": 7.8,

@@ -167,16 +167,44 @@ Use a straight 2 mm pin.
 |---|---|
 | Material | Clear acrylic (PMMA), 4 mm. Cast sheet engraves better than extruded. |
 | Size | 142.1 x 115.8 mm, corners R3.5. It is 0.5 mm smaller than the base all round. |
-| File | `lasercut/Lid_Plate_4mm_acrylic.dxf`, or the `.svg` with the same content. 1:1, millimetres. |
+| Files | In `lasercut/`, all three with the same drawing, 1:1, millimetres. See below for which to open. |
 | Laser | CO2. A diode laser does not cut clear acrylic. |
+
+Which file to use:
+
+| File | What |
+|---|---|
+| `Lid_Plate_4mm_acrylic.dxf` | DXF, AutoCAD 2018 format (AC1032). Open this one first, in Illustrator or in the laser software. |
+| `Lid_Plate_4mm_acrylic_R2000.dxf` | The same drawing as AutoCAD 2000 (AC1015). Use it if a program will not open the 2018 file. |
+| `Lid_Plate_4mm_acrylic.svg` | The same drawing as SVG. The fallback if neither DXF works. Opens at true size. |
+
+In Illustrator, when the DXF import dialog asks about scale, choose 1 unit = 1 millimetre (original
+size), not "scale to fit artboard". The rounded corners and the slot ends must import as curves; if
+they show as straight cut-off corners, use the SVG instead. The SVG lines are 0.0254 mm (0.072 pt,
+0.001 in) wide, the usual hairline that laser drivers read as a vector cut.
+
+Check the scale after import: the red outline must measure **142.33 x 116.00 mm** (select it and read
+W and H in the Transform panel). That is the plate (142.13 x 115.80 mm) plus the kerf allowance
+described below. The M3 holes are 3.20 mm across in the drawing, and their centres are 129.33 mm apart
+in X and 103.00 mm apart in Y. In the SVG the artboard is 144.33 x 118.00 mm, the plate with a 1 mm
+margin.
 
 The drawing is seen from above, outside face up. The front of the box is on the right.
 
 | Layer | Colour | Use |
 |---|---|---|
-| `CUT` | red, hairline | Cut through: outline, four M3 holes (3.4 mm), USER button hole (6.6 mm), BOOT and RESET pin holes (2.2 mm), eight vent slots (3 x 31 mm). |
-| `ENGRAVE` | blue, hairline | Engrave: USER, BOOT, RESET and SURROUND 4.0. Single-line strokes, so run it as a low-power line, not as a fill. The labels read from the front of the box. |
-| `LED_OPTIONAL` | green | Two 3.2 mm holes over the LEDs. **Not for clear acrylic.** Delete the layer or set it to no output. It is only there in case the lid is ever cut from an opaque sheet. |
+| `CUT` | red (ACI 1), hairline | Cut through: outline, four M3 holes (3.4 mm), USER button hole (6.6 mm), BOOT and RESET pin holes (2.2 mm), eight vent slots (3 x 31 mm). The outline and the slots are closed shapes. |
+| `ENGRAVE` | blue (ACI 5), hairline | Engrave: USER, BOOT, RESET and SURROUND 4.0. Single-line strokes, not text, so no font is needed. Run it as a low-power line, not as a fill. The labels read from the front of the box. |
+| `LED_OPTIONAL_NOT_FOR_CLEAR_ACRYLIC` | green (ACI 3) | Two 3.2 mm holes over the LEDs. **Not for clear acrylic.** Delete the layer or set it to no output. It is only there in case the lid is ever cut from an opaque sheet. |
+
+In the SVG each layer is a group with the same name. To regenerate the files (needs `ezdxf`; `uv`
+fetches it):
+
+```sh
+uv run --no-project --python /usr/bin/python3 --with ezdxf python3 enclosure/lasercut.py
+```
+
+`design.py` writes them too, and runs that command by itself when its Python has no `ezdxf`.
 
 Kerf: the cut lines are already compensated for a 0.20 mm kerf, a typical figure for a CO2 laser in
 4 mm acrylic. Holes and slots are drawn 0.10 mm smaller per side and the outline 0.10 mm larger. Check
@@ -345,14 +373,14 @@ python3 enclosure/render_preview.py   # render/*.png
 | File | What |
 |---|---|
 | `design.py` | The model. Parameters at the top, each marked with where it comes from. |
-| `lasercut.py` | Writes the DXF and SVG of the lid from the plate geometry in `design.py`. |
+| `lasercut.py` | Writes the DXFs (2018 and R2000) and the SVG of the lid from the plate geometry in `design.py`. Needs `ezdxf`. |
 | `board_export.py` | Board outline, holes and part positions from KiCad, and the STEP export. |
 | `validate.py` | Interference and clearance checks. |
 | `render_preview.py` | Preview renders. |
 | `MEASUREMENTS.md` | What is measured, and what is still open. |
 | `cad/` | STEP per part, the assembly STEP, the FreeCAD document, the board STEP and data, the check reports. |
 | `print/` | STL per printed part, in print orientation. |
-| `lasercut/` | The lid as DXF and SVG. |
+| `lasercut/` | The lid as DXF (2018 and R2000) and SVG. |
 | `render/` | Preview renders. |
 
 ## For a later revision
